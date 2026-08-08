@@ -1,8 +1,10 @@
-"""Normalized multi-source match record."""
+"""Canonical normalized match record used by all data sources."""
 from dataclasses import dataclass
 from datetime import date
 
+from .normalization import canonical_team_name
 from .provenance import Provenance
+
 
 @dataclass(frozen=True, slots=True)
 class MatchRecord:
@@ -24,9 +26,21 @@ class MatchRecord:
             raise ValueError("away_goals cannot be negative")
 
     @property
+    def canonical_home_team(self) -> str:
+        return canonical_team_name(self.home_team)
+
+    @property
+    def canonical_away_team(self) -> str:
+        return canonical_team_name(self.away_team)
+
+    @property
     def completed(self) -> bool:
         return self.home_goals is not None and self.away_goals is not None
 
     @property
     def source_count(self) -> int:
         return len(self.provenance)
+
+    @property
+    def identity_key(self) -> tuple[date, str, str, str | None]:
+        return (self.date, self.canonical_home_team, self.canonical_away_team, self.competition)
