@@ -1,10 +1,11 @@
-"""SQLite persistence for normalized SPM records and provenance."""
+"""SQLite persistence for normalized SPM records, provenance and match stats."""
 import sqlite3
 from datetime import date
 from pathlib import Path
 
 from .models import Match
 from .normalized import MatchRecord
+from .stats import MatchStats
 
 
 class MatchRepository:
@@ -30,8 +31,25 @@ class MatchRepository:
                 source TEXT NOT NULL, source_id TEXT, source_url TEXT, retrieved_at TEXT,
                 UNIQUE(match_id, source, source_id)
             )""")
+            db.execute("""CREATE TABLE IF NOT EXISTS match_stats (
+                id INTEGER PRIMARY KEY, match_id INTEGER NOT NULL REFERENCES matches(id) ON DELETE CASCADE,
+                source TEXT NOT NULL, xg_home REAL, xg_away REAL,
+                shots_home INTEGER, shots_away INTEGER, shots_on_target_home INTEGER, shots_on_target_away INTEGER,
+                possession_home REAL, possession_away REAL, corners_home INTEGER, corners_away INTEGER,
+                UNIQUE(match_id, source)
+            )""")
             db.execute("CREATE INDEX IF NOT EXISTS idx_matches_date ON matches(date)")
             db.execute("CREATE INDEX IF NOT EXISTS idx_provenance_match ON provenance(match_id)")
+            db.execute("CREATE INDEX IF NOT EXISTS idx_stats_match ON match_stats(match_id)")
+
+    def _match_id(self, db: sqlite3.Connection, record: MatchRecord) -> int:
+        row = db.execute(
+            "SELECT id FROM matches WHERE date=? AND home_team=? AND away_team=? AND competition IS ?",
+            (record.date.isoformat(), record.canonical_home_team, record.canonical_away_team, record.competition),
+        ).fetchone()
+        if row is None:
+            raise RuntimeError("failed to locate match")
+        return int(row[0])
 
     def upsert(self, record: MatchRecord) -> None:
         with self._connect() as db:
@@ -44,13 +62,7 @@ class MatchRepository:
                 (record.date.isoformat(), record.canonical_home_team, record.canonical_away_team,
                  record.home_goals, record.away_goals, record.competition, record.season),
             )
-            row = db.execute(
-                "SELECT id FROM matches WHERE date=? AND home_team=? AND away_team=? AND competition IS ?",
-                (record.date.isoformat(), record.canonical_home_team, record.canonical_away_team, record.competition),
-            ).fetchone()
-            if row is None:
-                raise RuntimeError("failed to locate upserted match")
-            match_id = int(row[0])
+            match_id = self._match_id(db, record)
             for provenance in record.provenance:
                 db.execute(
                     """INSERT OR IGNORE INTO provenance(match_id,source,source_id,source_url,retrieved_at)
@@ -58,6 +70,27 @@ class MatchRepository:
                     (match_id, provenance.source, provenance.source_id, provenance.source_url,
                      provenance.retrieved_at.isoformat() if provenance.retrieved_at else None),
                 )
+
+    def upsert_stats(self, stats: MatchStats) -> None:
+        with self._connect() as db:
+            row = db.execute(
+                "SELECT id FROM matches WHERE date=? AND home_team=? AND away_team=? AND competition IS ?",
+                (stats.match_key[0].isoformat(), stats.match_key[1], stats.match_key[2], stats.match_key[3]),
+            ).fetchone()
+            if row is None:
+                raise KeyError("match for statistics was not found")
+            db.execute(
+                """INSERT INTO match_stats(match_id,source,xg_home,xg_away,shots_home,shots_away,shots_on_target_home,
+                shots_on_target_away,possession_home,possession_away,corners_home,corners_away)
+                VALUES(?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(match_id,source) DO UPDATE SET
+                xg_home=excluded.xg_home,xg_away=excluded.xg_away,shots_home=excluded.shots_home,shots_away=excluded.shots_away,
+                shots_on_target_home=excluded.shots_on_target_home,shots_on_target_away=excluded.shots_on_target_away,
+                possession_home=excluded.possession_home,possession_away=excluded.possession_away,
+                corners_home=excluded.corners_home,corners_away=excluded.corners_away""",
+                (row[0], stats.source, stats.xg_home, stats.xg_away, stats.shots_home, stats.shots_away,
+                 stats.shots_on_target_home, stats.shots_on_target_away, stats.possession_home,
+                 stats.possession_away, stats.corners_home, stats.corners_away),
+            )
 
     def count(self) -> int:
         with self._connect() as db:
@@ -67,8 +100,11 @@ class MatchRepository:
         with self._connect() as db:
             return int(db.execute("SELECT COUNT(*) FROM provenance").fetchone()[0])
 
+    def stats_count(self) -> int:
+        with self._connect() as db:
+            return int(db.execute("SELECT COUNT(*) FROM match_stats").fetchone()[0])
+
     def load_matches(self, *, completed_only: bool = True) -> list[Match]:
-        """Load canonical database records in chronological order for the model."""
         query = "SELECT date, home_team, away_team, home_goals, away_goals FROM matches"
         if completed_only:
             query += " WHERE home_goals IS NOT NULL AND away_goals IS NOT NULL"
