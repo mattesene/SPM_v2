@@ -69,8 +69,10 @@ def run_walk_forward(
 
         calibration = calibrate_weights(features, outcomes, step=step)
         test_errors: list[float] = []
-        for match in test:
-            history = ordered[: ordered.index(match)]
+        for offset, match in enumerate(test):
+            # The complete history available at this point is the training
+            # window plus only earlier matches from the current test window.
+            history = ordered[: start + train_matches + offset]
             if len(history) < min_history:
                 continue
             try:
