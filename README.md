@@ -20,15 +20,28 @@ SPM_v2 now provides:
 - deterministic weight calibration;
 - walk-forward out-of-sample validation;
 - automated tests through GitHub Actions;
-- command-line prediction interface.
+- command-line prediction interface;
+- a multi-source data registry with provenance metadata.
+
+## Data-source strategy
+
+The supplied sources are intentionally assigned different roles rather than blindly merging them. Diretta.it, Sofascore and FBref are registered as independent results/fixture references; Sofascore and FBref also cover rich team/match/player statistics; WhoScored is reserved for advanced statistical cross-checks; CIES Football Observatory is treated as contextual/research data.
+
+The ingestion layer records source provenance so the same match or statistic can be reconciled across providers. Automated collection will only use access methods permitted by each provider's terms and technical restrictions; a website being listed as a source does not imply permission to bypass anti-bot controls or access restrictions.
 
 ## Architecture
 
 ```text
-Historical CSV
+External sources
      |
      v
- Match / Season
+Source registry + provenance
+     |
+     v
+Canonical MatchRecord
+     |
+     v
+Match / Season
      |
      +--> team statistics
      +--> recent form
@@ -36,19 +49,19 @@ Historical CSV
      +--> goal balance
      |
      v
- Poisson baseline
+Poisson baseline
      |
      v
- SPM feature vector
+SPM feature vector
      |
      v
- Calibrated weights
+Calibrated weights
      |
      v
- SPM probability / score
+SPM probability / score
      |
      v
- Ranking + backtesting + walk-forward validation
+Ranking + backtesting + walk-forward validation
 ```
 
 ## CLI
