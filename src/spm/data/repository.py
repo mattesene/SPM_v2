@@ -1,7 +1,9 @@
 """SQLite persistence for normalized SPM records and provenance."""
 import sqlite3
+from datetime import date
 from pathlib import Path
 
+from .models import Match
 from .normalized import MatchRecord
 
 
@@ -18,23 +20,14 @@ class MatchRepository:
     def _initialize(self) -> None:
         with self._connect() as db:
             db.execute("""CREATE TABLE IF NOT EXISTS matches (
-                id INTEGER PRIMARY KEY,
-                date TEXT NOT NULL,
-                home_team TEXT NOT NULL,
-                away_team TEXT NOT NULL,
-                home_goals INTEGER,
-                away_goals INTEGER,
-                competition TEXT,
-                season TEXT,
+                id INTEGER PRIMARY KEY, date TEXT NOT NULL, home_team TEXT NOT NULL,
+                away_team TEXT NOT NULL, home_goals INTEGER, away_goals INTEGER,
+                competition TEXT, season TEXT,
                 UNIQUE(date, home_team, away_team, competition)
             )""")
             db.execute("""CREATE TABLE IF NOT EXISTS provenance (
-                id INTEGER PRIMARY KEY,
-                match_id INTEGER NOT NULL REFERENCES matches(id) ON DELETE CASCADE,
-                source TEXT NOT NULL,
-                source_id TEXT,
-                source_url TEXT,
-                retrieved_at TEXT,
+                id INTEGER PRIMARY KEY, match_id INTEGER NOT NULL REFERENCES matches(id) ON DELETE CASCADE,
+                source TEXT NOT NULL, source_id TEXT, source_url TEXT, retrieved_at TEXT,
                 UNIQUE(match_id, source, source_id)
             )""")
             db.execute("CREATE INDEX IF NOT EXISTS idx_matches_date ON matches(date)")
@@ -44,8 +37,7 @@ class MatchRepository:
         with self._connect() as db:
             db.execute(
                 """INSERT INTO matches(date,home_team,away_team,home_goals,away_goals,competition,season)
-                VALUES(?,?,?,?,?,?,?)
-                ON CONFLICT(date,home_team,away_team,competition) DO UPDATE SET
+                VALUES(?,?,?,?,?,?,?) ON CONFLICT(date,home_team,away_team,competition) DO UPDATE SET
                 home_goals=COALESCE(excluded.home_goals,matches.home_goals),
                 away_goals=COALESCE(excluded.away_goals,matches.away_goals),
                 season=COALESCE(excluded.season,matches.season)""",
@@ -74,3 +66,13 @@ class MatchRepository:
     def provenance_count(self) -> int:
         with self._connect() as db:
             return int(db.execute("SELECT COUNT(*) FROM provenance").fetchone()[0])
+
+    def load_matches(self, *, completed_only: bool = True) -> list[Match]:
+        """Load canonical database records in chronological order for the model."""
+        query = "SELECT date, home_team, away_team, home_goals, away_goals FROM matches"
+        if completed_only:
+            query += " WHERE home_goals IS NOT NULL AND away_goals IS NOT NULL"
+        query += " ORDER BY date, id"
+        with self._connect() as db:
+            rows = db.execute(query).fetchall()
+        return [Match(date.fromisoformat(row[0]), row[1], row[2], row[3], row[4]) for row in rows]
