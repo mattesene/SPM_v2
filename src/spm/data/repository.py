@@ -1,10 +1,10 @@
 """SQLite persistence for normalized SPM records and provenance."""
 import sqlite3
+from datetime import date
 from pathlib import Path
 
 from .models import Match
 from .normalized import MatchRecord
-from .provenance import Provenance
 
 
 class MatchRepository:
@@ -75,9 +75,4 @@ class MatchRepository:
         query += " ORDER BY date, id"
         with self._connect() as db:
             rows = db.execute(query).fetchall()
-        return [Match(_parse_date(row[0]), row[1], row[2], row[3], row[4]) for row in rows]
-
-
-def _parse_date(value: str):
-    from datetime import date
-    return date.fromisoformat(value)
+        return [Match(date.fromisoformat(row[0]), row[1], row[2], row[3], row[4]) for row in rows]
