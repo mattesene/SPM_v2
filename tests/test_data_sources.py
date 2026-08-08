@@ -22,6 +22,10 @@ def test_match_record_provenance_and_sqlite(tmp_path) -> None:
     assert record.source_count == 2
     repo = MatchRepository(tmp_path / "spm.db")
     repo.upsert(record)
-    assert repo.count() == 1
     repo.upsert(record)
     assert repo.count() == 1
+    assert repo.provenance_count() == 2
+    matches = repo.load_matches()
+    assert len(matches) == 1
+    assert matches[0].home_team == "inter"
+    assert matches[0].away_team == "milan"
