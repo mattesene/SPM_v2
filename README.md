@@ -10,7 +10,9 @@ SPM_v2 now provides:
 
 - validated football-result domain models;
 - CSV historical-data ingestion;
-- team and season statistics;
+- deterministic team-name normalization;
+- multi-source match reconciliation;
+- SQLite persistence with source provenance;
 - recency-weighted form features;
 - Poisson draw-probability baseline;
 - configurable SPM feature weights;
@@ -20,14 +22,36 @@ SPM_v2 now provides:
 - deterministic weight calibration;
 - walk-forward out-of-sample validation;
 - automated tests through GitHub Actions;
-- command-line prediction interface;
-- a multi-source data registry with provenance metadata.
+- command-line prediction interface.
 
 ## Data-source strategy
 
 The supplied sources are intentionally assigned different roles rather than blindly merging them. Diretta.it, Sofascore and FBref are registered as independent results/fixture references; Sofascore and FBref also cover rich team/match/player statistics; WhoScored is reserved for advanced statistical cross-checks; CIES Football Observatory is treated as contextual/research data.
 
 The ingestion layer records source provenance so the same match or statistic can be reconciled across providers. Automated collection will only use access methods permitted by each provider's terms and technical restrictions; a website being listed as a source does not imply permission to bypass anti-bot controls or access restrictions.
+
+## Data pipeline
+
+```text
+Provider adapters
+      |
+      v
+Canonical MatchRecord
+      |
+      v
+Team-name normalization
+      |
+      v
+Multi-source reconciliation
+      |
+      v
+SQLite + provenance
+      |
+      v
+SPM statistics / model
+```
+
+The provider layer is intentionally adapter-based. A source can be added without changing the statistical engine. The current implementation includes a canonical CSV adapter and the interfaces needed for permitted provider-specific adapters.
 
 ## Architecture
 
