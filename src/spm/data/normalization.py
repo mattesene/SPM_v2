@@ -5,6 +5,9 @@ import unicodedata
 
 
 def normalize_team_name(name: str) -> str:
+    """Normalize a provider team name into a stable comparison key."""
+    if not isinstance(name, str) or not name.strip():
+        raise ValueError("team name must be a non-empty string")
     value = unicodedata.normalize("NFKD", name).encode("ascii", "ignore").decode("ascii")
     value = re.sub(r"[^a-zA-Z0-9]+", " ", value).strip().lower()
     return re.sub(r"\s+", " ", value)
