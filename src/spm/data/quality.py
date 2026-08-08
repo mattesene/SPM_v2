@@ -20,7 +20,7 @@ def validate_records(records: list[MatchRecord], *, as_of: date | None = None) -
             issues.append(QualityIssue("future_record", "record is after the analysis date", index))
         if record.home_team.strip() == record.away_team.strip():
             issues.append(QualityIssue("same_team", "home and away teams are identical", index))
-        if record.completed and (record.home_goals is None or record.away_goals is None):
+        if (record.home_goals is None) != (record.away_goals is None):
             issues.append(QualityIssue("partial_score", "score is partially populated", index))
         key = record.identity_key
         if key in seen:
