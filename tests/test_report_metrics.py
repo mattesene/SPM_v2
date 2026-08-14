@@ -4,7 +4,7 @@ from spm.backtest.report_metrics import brier_score, flat_stake_roi, log_loss
 
 
 def test_brier_score():
-    assert brier_score([0.5, 0.9], [1, 0]) == pytest.approx(0.41)
+    assert brier_score([0.5, 0.9], [1, 0]) == pytest.approx(0.53)
 
 
 def test_log_loss_is_finite_at_extremes():
