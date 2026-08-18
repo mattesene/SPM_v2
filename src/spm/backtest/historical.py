@@ -1,48 +1,24 @@
 """Historical backtest orchestration over chronologically ordered matches."""
 from __future__ import annotations
 
-from dataclasses import dataclass
-from datetime import date
-from typing import Iterable, Sequence
+from spm.data.models import Match
 
-from .engine import BacktestEngine
+from .engine import ChronologicalBacktester
 from .report import BacktestReport
 
 
-@dataclass(frozen=True, slots=True)
-class HistoricalMatch:
-    date: date
-    home_team: str
-    away_team: str
-    home_goals: int
-    away_goals: int
-
-    @property
-    def draw(self) -> int:
-        return int(self.home_goals == self.away_goals)
-
-
 def run_historical_backtest(
-    matches: Iterable[HistoricalMatch],
-    engine: BacktestEngine,
+    matches: list[Match],
+    min_history: int = 1,
+    threshold: float = 0.5,
 ) -> BacktestReport:
-    """Run a chronological backtest without exposing the current match result."""
-    ordered: Sequence[HistoricalMatch] = tuple(sorted(matches, key=lambda m: m.date))
-    actual: list[str] = []
-    predicted: list[str] = []
-    probabilities: list[float] = []
-    outcomes: list[int] = []
-
-    for match in ordered:
-        prediction = engine.predict(
-            home_team=match.home_team,
-            away_team=match.away_team,
-        )
-        if prediction is not None:
-            actual.append("D" if match.draw else "N")
-            predicted.append("D" if prediction.selected else "N")
-            probabilities.append(prediction.probability)
-            outcomes.append(match.draw)
-        engine.update(match.home_team, match.away_team, match.home_goals, match.away_goals)
-
+    """Run a chronological, leakage-safe backtest and build its report."""
+    observations = ChronologicalBacktester(
+        min_history=min_history,
+        threshold=threshold,
+    ).run(matches)
+    actual = ["D" if observation.actual_draw else "N" for observation in observations]
+    predicted = ["D" if observation.selected else "N" for observation in observations]
+    probabilities = [observation.probability for observation in observations]
+    outcomes = [observation.actual_draw for observation in observations]
     return BacktestReport.from_predictions(actual, predicted, probabilities, outcomes)
