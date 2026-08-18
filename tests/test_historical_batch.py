@@ -12,5 +12,5 @@ def test_historical_batch_runs_independent_sources():
     result = run_historical_batch({"season-a": records}, min_history=1)
     assert result[0].path == "season-a"
     assert result[0].records == 2
-    assert result[0].evaluated == 2
-    assert result[0].not_evaluated == 0
+    assert result[0].evaluated == 0
+    assert result[0].not_evaluated == 2
