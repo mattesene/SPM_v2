@@ -2,11 +2,13 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Iterable
+from collections.abc import Iterable
 
 from spm.data.normalized import MatchRecord
 from spm.ingestion.historical import COMPETITIONS
-from spm.ingestion.seasons import HISTORICAL_SEASONS
+from spm.ingestion.seasons import season_codes
+
+HISTORICAL_SEASONS = season_codes()
 
 
 @dataclass(frozen=True, slots=True)
