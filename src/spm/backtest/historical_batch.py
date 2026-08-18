@@ -16,17 +16,12 @@ class HistoricalBatchItem:
     rejected: int
 
 
-def run_historical_batch(paths: list[str | Path]) -> list[HistoricalBatchItem]:
+def run_historical_batch(records_by_source: dict[str | Path, list[MatchRecord]]) -> list[HistoricalBatchItem]:
+    """Run independent historical datasets without assuming a file format."""
     results: list[HistoricalBatchItem] = []
-    for path in paths:
-        records = MatchRecord.load_csv(path)
+    for path, records in records_by_source.items():
         report = run_historical_backtest(records)
         results.append(
-            HistoricalBatchItem(
-                str(path),
-                len(records),
-                report.completed,
-                report.rejected,
-            )
+            HistoricalBatchItem(str(path), len(records), report.completed, report.rejected)
         )
     return results
