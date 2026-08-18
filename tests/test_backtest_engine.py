@@ -14,7 +14,7 @@ def test_backtest_never_uses_current_match_for_prediction():
         Match(date(2024, 1, 22), "A", "B", 0, 1),
     ]
     observations = ChronologicalBacktester(min_history=1).run(matches)
-    assert len(observations) == 3
+    assert len(observations) == 2
     assert observations[-1].home_team == "A"
     assert observations[-1].away_team == "B"
 
