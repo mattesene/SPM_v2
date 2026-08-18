@@ -14,8 +14,8 @@ def test_completed_matches_filters_unfinished_records():
     assert matches[0].is_draw
 
 
-def test_completed_matches_uses_canonical_names():
+def test_completed_matches_uses_configured_canonical_names():
     records = [MatchRecord(date(2025, 8, 1), "Inter Milan", "AC Milan", 2, 0)]
     match = completed_matches(records)[0]
-    assert match.home_team == "inter-milan"
-    assert match.away_team == "ac-milan"
+    assert match.home_team == "inter"
+    assert match.away_team == "milan"

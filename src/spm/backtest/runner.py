@@ -16,7 +16,11 @@ class BacktestSlice:
     report: BacktestReport
 
 
-def run_slice(records: list[MatchRecord], engine) -> BacktestSlice:
+def run_slice(
+    records: list[MatchRecord],
+    min_history: int = 1,
+    threshold: float = 0.0,
+) -> BacktestSlice:
     """Run one competition/season slice from normalized records."""
     if not records:
         raise ValueError("records cannot be empty")
@@ -24,5 +28,9 @@ def run_slice(records: list[MatchRecord], engine) -> BacktestSlice:
     season = records[0].season or "unknown"
     if any((r.competition or "unknown") != competition or (r.season or "unknown") != season for r in records):
         raise ValueError("records must belong to one competition and season")
-    report = run_historical_backtest(completed_matches(records), engine)
+    report = run_historical_backtest(
+        list(completed_matches(records)),
+        min_history=min_history,
+        threshold=threshold,
+    )
     return BacktestSlice(competition, season, report)
