@@ -1,8 +1,8 @@
 """Aggregate backtest execution across competition/season slices."""
 from __future__ import annotations
 
-from dataclasses import dataclass
 from collections.abc import Iterable
+from dataclasses import dataclass
 
 from spm.backtest.dataset import group_by_competition_season
 from spm.backtest.runner import BacktestSlice, run_slice
@@ -26,10 +26,15 @@ class MultiBacktestReport:
         return self.total_correct / self.total_samples if self.total_samples else 0.0
 
 
-def run_multi(records: Iterable[MatchRecord], engine_factory) -> MultiBacktestReport:
-    """Run isolated backtests, creating a fresh engine for every slice."""
-    slices: list[BacktestSlice] = []
-    for group in group_by_competition_season(records).values():
-        slices.append(run_slice(list(group), engine_factory()))
+def run_multi(
+    records: Iterable[MatchRecord],
+    min_history: int = 1,
+    threshold: float = 0.0,
+) -> MultiBacktestReport:
+    """Run isolated chronological backtests for every competition/season slice."""
+    slices = [
+        run_slice(list(group), min_history=min_history, threshold=threshold)
+        for group in group_by_competition_season(records).values()
+    ]
     slices.sort(key=lambda item: (item.competition, item.season))
     return MultiBacktestReport(tuple(slices))
