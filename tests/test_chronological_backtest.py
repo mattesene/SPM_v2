@@ -11,5 +11,5 @@ def test_backtester_requires_history_before_scoring():
         Match(date(2025, 1, 2), "B", "C", 1, 1),
         Match(date(2025, 1, 3), "A", "C", 0, 0),
     ]
-    report = engine.run(matches)
-    assert len(report.observations) == 2
+    observations = engine.run(matches)
+    assert len(observations) == 2
