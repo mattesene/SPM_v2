@@ -12,16 +12,26 @@ from spm.data.normalized import MatchRecord
 class HistoricalBatchItem:
     path: str
     records: int
-    completed: int
-    rejected: int
+    evaluated: int
+    not_evaluated: int
 
 
-def run_historical_batch(records_by_source: dict[str | Path, list[MatchRecord]]) -> list[HistoricalBatchItem]:
-    """Run independent historical datasets without assuming a file format."""
+def run_historical_batch(
+    records_by_source: dict[str | Path, list[MatchRecord]],
+    *,
+    min_history: int = 3,
+) -> list[HistoricalBatchItem]:
+    """Run independent normalized datasets and summarize evaluated observations."""
     results: list[HistoricalBatchItem] = []
     for path, records in records_by_source.items():
-        report = run_historical_backtest(records)
+        observations = run_historical_backtest(records, min_history=min_history)
+        evaluated = len(observations)
         results.append(
-            HistoricalBatchItem(str(path), len(records), report.completed, report.rejected)
+            HistoricalBatchItem(
+                str(path),
+                len(records),
+                evaluated,
+                len(records) - evaluated,
+            )
         )
     return results
