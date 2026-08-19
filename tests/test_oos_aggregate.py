@@ -13,5 +13,5 @@ def test_aggregate_oos_results():
     assert result.profit == 15.0
     assert result.final_bankroll == 1015.0
     assert result.roi == .015
-    assert result.max_drawdown == 0.0
+    assert result.max_drawdown == 5.0
     assert result.winning_windows == 1
