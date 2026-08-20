@@ -14,7 +14,7 @@ class SeasonSource:
 
 def football_data_season(competition: str, season: str) -> SeasonSource:
     """Build a Football-Data.co.uk CSV source from a season code (e.g. 2425)."""
-    competition = competition.strip().lower()
+    competition = competition.strip().upper()
     season = season.strip()
     if not competition or not season or len(season) != 4 or not season.isdigit():
         raise ValueError("competition and a four-digit numeric season are required")
