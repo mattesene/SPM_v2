@@ -4,6 +4,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Iterable
 
+from .edge_staking import run_edge_staking
 from .market_runner import MarketBacktestObservation
 from .oos_evaluation import OOSMetrics, evaluate_oos
 
@@ -25,13 +26,10 @@ def run_edge_walk_forward(
     *,
     train_size: int,
     test_size: int,
+    initial_bankroll: float = 1_000.0,
+    base_stake: float = 10.0,
 ) -> tuple[EdgeWalkForwardWindow, ...]:
-    """Select edge threshold on each train window and evaluate only next test window.
-
-    The threshold is selected using training mean edge, then the selected
-    threshold is evaluated on the immediately following observations. No test
-    result participates in threshold selection.
-    """
+    """Select a threshold on TRAIN using staking performance, then test it on the next window."""
     rows = tuple(observations)
     candidates = tuple(sorted(set(thresholds)))
     if not candidates or any(value < 0.0 for value in candidates):
@@ -47,10 +45,23 @@ def run_edge_walk_forward(
         ranked = []
         for threshold in candidates:
             metrics = evaluate_oos(train, min_edge=threshold)
-            # Prefer higher realized selected draw rate, then more selections,
-            # then lower threshold for deterministic tie-breaking.
-            ranked.append((metrics.selected_draw_rate, metrics.selected, -threshold, threshold, metrics))
-        _, _, _, selected_threshold, train_metrics = max(ranked)
+            staking = run_edge_staking(
+                train,
+                min_edge=threshold,
+                initial_bankroll=initial_bankroll,
+                base_stake=base_stake,
+            ).staking
+            # Optimize TRAIN on profit first, then lower drawdown, then sample size,
+            # with a deterministic lower-threshold tie break. TEST is never inspected.
+            ranked.append((
+                staking.profit,
+                -staking.max_drawdown,
+                metrics.selected,
+                -threshold,
+                threshold,
+                metrics,
+            ))
+        _, _, _, _, selected_threshold, train_metrics = max(ranked)
         test_metrics = evaluate_oos(test, min_edge=selected_threshold)
         windows.append(EdgeWalkForwardWindow(
             train_start=start,
