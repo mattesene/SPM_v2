@@ -21,6 +21,8 @@ class MarketBacktestObservation:
     actual_draw: bool
     selected: bool
     draw_odds: float | None
+    home_streak: int = 0
+    away_streak: int = 0
 
 
 def run_market_backtest(
@@ -32,26 +34,22 @@ def run_market_backtest(
     initial_bankroll: float = 1_000.0,
     base_stake: float = 10.0,
 ) -> tuple[tuple[MarketBacktestObservation, ...], OddsStakingResult]:
-    """Run SPM chronologically, attach market prices, then stake.
-
-    Odds are joined using the same canonical team identity used by the odds
-    index, preventing formatting differences in team names from dropping a
-    valid market price.
-    """
+    """Run SPM chronologically, attaching pre-match streaks and market prices."""
     match_list = list(matches)
     odds_index = index_draw_odds(list(odds))
     backtest = ChronologicalBacktester(min_history=min_history, threshold=threshold)
     raw = backtest.run(match_list)
     observations: list[MarketBacktestObservation] = []
     selections: list[tuple[bool, float | None]] = []
+    streaks: dict[str, int] = {}
 
     for item in raw:
-        key = (
-            item.date,
-            canonical_team_name(item.home_team),
-            canonical_team_name(item.away_team),
-        )
+        home = canonical_team_name(item.home_team)
+        away = canonical_team_name(item.away_team)
+        key = (item.date, home, away)
         draw_odds = odds_index.get(key)
+        home_streak = streaks.get(home, 0)
+        away_streak = streaks.get(away, 0)
         observations.append(MarketBacktestObservation(
             date=item.date,
             home_team=item.home_team,
@@ -60,9 +58,17 @@ def run_market_backtest(
             actual_draw=bool(item.actual_draw),
             selected=item.selected,
             draw_odds=draw_odds,
+            home_streak=home_streak,
+            away_streak=away_streak,
         ))
         if item.selected:
             selections.append((bool(item.actual_draw), draw_odds))
+        if item.actual_draw:
+            streaks[home] = 0
+            streaks[away] = 0
+        else:
+            streaks[home] = home_streak + 1
+            streaks[away] = away_streak + 1
 
     staking = simulate_draw_progression_with_odds(
         selections,
