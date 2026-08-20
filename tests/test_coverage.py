@@ -16,7 +16,7 @@ def test_coverage_reports_missing_files(tmp_path):
 
 def test_coverage_reports_complete_catalog(tmp_path):
     for season in ("2425", "2324"):
-        path = tmp_path / "I1" / season / f"i1{season}.csv"
+        path = tmp_path / "I1" / season / f"I1{season}.csv"
         path.parent.mkdir(parents=True)
         path.write_text("Date,HomeTeam,AwayTeam,FTHG,FTAG,FTR\n")
     report = validate_catalog_coverage(_catalog(), tmp_path)
