@@ -21,6 +21,7 @@ class MarketBacktestObservation:
     probability: float
     actual_draw: bool
     selected: bool
+    selected_team: str | None
     draw_odds: float | None
     home_streak: int = 0
     away_streak: int = 0
@@ -52,21 +53,23 @@ def run_market_backtest(
         draw_odds = odds_index.get((item.date, home, away))
         home_streak = streaks.get(home, 0)
         away_streak = streaks.get(away, 0)
-        selected = False
+        selected_team: str | None = None
         if draw_odds is not None:
             signal_home = build_market_signal(home, home_streak, item.probability, draw_odds,
                                               min_streak=min_streak, min_edge=min_edge)
             signal_away = build_market_signal(away, away_streak, item.probability, draw_odds,
                                               min_streak=min_streak, min_edge=min_edge)
-            selected = signal_home.selected or signal_away.selected
+            if signal_home.selected:
+                selected_team = home
+            elif signal_away.selected:
+                selected_team = away
+        selected = selected_team is not None
         observations.append(MarketBacktestObservation(
             date=item.date, home_team=item.home_team, away_team=item.away_team,
             probability=item.probability, actual_draw=bool(item.actual_draw),
-            selected=selected, draw_odds=draw_odds,
+            selected=selected, selected_team=selected_team, draw_odds=draw_odds,
             home_streak=home_streak, away_streak=away_streak,
         ))
-        # Preserve a selected event with a missing price so the staking layer
-        # can account for it explicitly as skipped rather than dropping it.
         if item.selected and draw_odds is None:
             selections.append((bool(item.actual_draw), None))
         elif selected:
