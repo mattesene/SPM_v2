@@ -55,23 +55,38 @@ def run_market_backtest(
         away_streak = streaks.get(away, 0)
         selected_team: str | None = None
         if draw_odds is not None:
-            signal_home = build_market_signal(home, home_streak, item.probability, draw_odds, min_streak=min_streak, min_edge=min_edge)
-            signal_away = build_market_signal(away, away_streak, item.probability, draw_odds, min_streak=min_streak, min_edge=min_edge)
+            signal_home = build_market_signal(
+                home, home_streak, item.probability, draw_odds,
+                min_streak=min_streak, min_edge=min_edge,
+            )
+            signal_away = build_market_signal(
+                away, away_streak, item.probability, draw_odds,
+                min_streak=min_streak, min_edge=min_edge,
+            )
             if signal_home.selected:
                 selected_team = home
             elif signal_away.selected:
                 selected_team = away
+
         selected = selected_team is not None
         observations.append(MarketBacktestObservation(
-            date=item.date, home_team=item.home_team, away_team=item.away_team,
-            probability=item.probability, actual_draw=bool(item.actual_draw),
-            selected=selected, draw_odds=draw_odds, home_streak=home_streak,
-            away_streak=away_streak, selected_team=selected_team,
+            date=item.date,
+            home_team=item.home_team,
+            away_team=item.away_team,
+            probability=item.probability,
+            actual_draw=bool(item.actual_draw),
+            selected=selected,
+            draw_odds=draw_odds,
+            home_streak=home_streak,
+            away_streak=away_streak,
+            selected_team=selected_team,
         ))
-        if item.selected and draw_odds is None:
-            selections.append((bool(item.actual_draw), None))
-        elif selected:
+
+        # Only feed market selections with a known historical draw price into
+        # the odds-aware staking simulation. Missing odds mean no market bet.
+        if selected and draw_odds is not None:
             selections.append((bool(item.actual_draw), draw_odds))
+
         if item.actual_draw:
             streaks[home] = 0
             streaks[away] = 0
@@ -79,5 +94,9 @@ def run_market_backtest(
             streaks[home] = home_streak + 1
             streaks[away] = away_streak + 1
 
-    staking = simulate_draw_progression_with_odds(selections, initial_bankroll=initial_bankroll, base_stake=base_stake)
+    staking = simulate_draw_progression_with_odds(
+        selections,
+        initial_bankroll=initial_bankroll,
+        base_stake=base_stake,
+    )
     return tuple(observations), staking
