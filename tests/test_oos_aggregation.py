@@ -6,7 +6,7 @@ from spm.backtest.windows import OOSWindow
 from spm.backtest.market_runner import MarketBacktestObservation
 
 
-def test_aggregate_oos_results_counts_selected_draws():
+def test_aggregate_oos_results_counts_only_real_selections():
     window = OOSWindow(date(2020,1,1), date(2020,2,1), date(2020,2,1), date(2020,3,1), date(2020,3,1))
     observations = (
         MarketBacktestObservation(date(2020,2,2), "A", "B", 3, True, True, 3.2),
@@ -16,6 +16,6 @@ def test_aggregate_oos_results_counts_selected_draws():
     result = aggregate_oos_results((WindowResult(window, observations, ()),))
     assert result.windows == 1
     assert result.observations == 3
-    assert result.selected == 2
+    assert result.selected == 1
     assert result.draws == 1
-    assert result.hit_rate == 0.5
+    assert result.hit_rate == 1.0
