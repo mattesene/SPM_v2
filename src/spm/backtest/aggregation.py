@@ -22,11 +22,10 @@ def aggregate_team_oos(observations: Iterable[MarketBacktestObservation]) -> tup
     for row in observations:
         for team in (row.home_team, row.away_team):
             data[team][0] += 1
-        if row.selected:
-            # The match is a single betting opportunity, attributed to both participating teams.
-            for team in (row.home_team, row.away_team):
-                data[team][1] += 1
-                data[team][2] += int(row.actual_draw)
+        if row.selected and row.selected_team:
+            team = row.selected_team
+            data[team][1] += 1
+            data[team][2] += int(row.actual_draw)
     result = []
     for team, (observations_count, selections, draws) in data.items():
         result.append(TeamOOSStats(
