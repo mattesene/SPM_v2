@@ -1,0 +1,31 @@
+from datetime import date
+
+from spm.data.coverage import validate_catalog_coverage
+from spm.data.historical_catalog import HistoricalCatalog, HistoricalSource
+
+
+def _catalog():
+    return HistoricalCatalog((
+        HistoricalSource("ita1", "2425", "https://example.test/ita1.csv", "ita12425.csv"),
+        HistoricalSource("ita1", "2324", "https://example.test/ita1.csv", "ita12324.csv"),
+    ))
+
+
+def test_coverage_reports_missing_files(tmp_path):
+    report = validate_catalog_coverage(_catalog(), tmp_path)
+    assert report.expected == 2
+    assert report.present == 0
+    assert len(report.missing) == 2
+    assert not report.complete
+
+
+def test_coverage_reports_complete_catalog(tmp_path):
+    for season in ("2425", "2324"):
+        path = tmp_path / "ita1" / season / f"ita1{season}.csv"
+        path.parent.mkdir(parents=True)
+        path.write_text("Date,HomeTeam,AwayTeam,FTHG,FTAG,FTR\n")
+    report = validate_catalog_coverage(_catalog(), tmp_path)
+    assert report.expected == 2
+    assert report.present == 2
+    assert report.missing == ()
+    assert report.complete
