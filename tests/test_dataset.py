@@ -25,5 +25,5 @@ def test_missing_odds_is_rejected():
 
 
 def test_conflicting_duplicate_odds_are_rejected():
-    with pytest.raises(ValueError, match="conflicting odds"):
+    with pytest.raises(ValueError, match="conflicting draw odds"):
         join_results_and_odds((_result(),), (_odds(3.2), _odds(3.4)))
