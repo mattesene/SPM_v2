@@ -65,7 +65,11 @@ def run_market_backtest(
             selected=selected, draw_odds=draw_odds,
             home_streak=home_streak, away_streak=away_streak,
         ))
-        if selected:
+        # Preserve a selected event with a missing price so the staking layer
+        # can account for it explicitly as skipped rather than dropping it.
+        if item.selected and draw_odds is None:
+            selections.append((bool(item.actual_draw), None))
+        elif selected:
             selections.append((bool(item.actual_draw), draw_odds))
         if item.actual_draw:
             streaks[home] = 0
