@@ -24,7 +24,7 @@ def test_market_runner_uses_only_selected_matches_and_market_prices():
     assert staking.final_bankroll == 125.0
 
 
-def test_market_runner_keeps_missing_price_explicit():
+def test_market_runner_without_price_places_no_market_bet():
     matches = [
         Match(date(2026, 1, 1), "A", "B", 1, 0),
         Match(date(2026, 1, 2), "A", "B", 0, 0),
@@ -35,4 +35,4 @@ def test_market_runner_keeps_missing_price_explicit():
     )
     assert observations[0].draw_odds is None
     assert staking.bets == 0
-    assert staking.skipped == 1
+    assert staking.skipped == 0
