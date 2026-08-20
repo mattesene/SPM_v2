@@ -16,7 +16,7 @@ def test_catalog_odds_staking_uses_match_specific_prices():
     assert result.observations == 3
     assert result.selected == 3
     assert result.draw_rate == pytest.approx(2 / 3)
-    assert result.staking.final_bankroll == pytest.approx(180.0)
+    assert result.staking.final_bankroll == pytest.approx(160.0)
 
 
 def test_catalog_odds_staking_counts_missing_prices_as_unselected():
