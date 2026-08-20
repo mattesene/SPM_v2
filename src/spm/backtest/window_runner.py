@@ -2,8 +2,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import date
-from typing import Iterable, Sequence
+from typing import Sequence
 
 from spm.backtest.aggregation import TeamOOSStats, aggregate_team_oos
 from spm.backtest.market_runner import MarketBacktestObservation, run_market_backtest
@@ -43,5 +42,9 @@ def run_oos_windows(
             min_streak=min_streak,
             min_edge=min_edge,
         )
-        results.append(WindowResult(window, observations, aggregate_team_oos(observations)))
+        # Only observations with an actually matched historical price can
+        # contribute to economic evaluation; the market runner exposes this
+        # explicitly through draw_odds.
+        priced = tuple(item for item in observations if item.draw_odds is not None)
+        results.append(WindowResult(window, priced, aggregate_team_oos(priced)))
     return tuple(results)
