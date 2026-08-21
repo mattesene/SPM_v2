@@ -3,10 +3,10 @@ from pathlib import Path
 from spm.data.historical_scope import default_historical_scope
 
 
-def test_default_scope_contains_expected_30_sources(tmp_path: Path):
+def test_default_scope_contains_expected_35_sources(tmp_path: Path):
     scope = default_historical_scope(tmp_path)
-    assert len(scope.catalog.sources) == 30
-    assert len(scope.expected_files) == 30
+    assert len(scope.catalog.sources) == 35
+    assert len(scope.expected_files) == 35
     assert not scope.complete
 
 
