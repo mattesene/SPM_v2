@@ -3,11 +3,16 @@ from __future__ import annotations
 
 import argparse
 import json
+from dataclasses import asdict, is_dataclass
 from pathlib import Path
 
 from spm.statistics.backtest_runner import run_directory
 from spm.statistics.competition_report import build_competition_report
 from spm.statistics.competition_ranking import rank_competitions
+
+
+def _serialize(row):
+    return asdict(row) if is_dataclass(row) else row
 
 
 def main() -> None:
@@ -23,8 +28,8 @@ def main() -> None:
 
     payload = {
         "datasets": len(results),
-        "seasons": [row.__dict__ for row in seasons],
-        "ranking": [row.__dict__ for row in ranking],
+        "seasons": [_serialize(row) for row in seasons],
+        "ranking": [_serialize(row) for row in ranking],
     }
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(json.dumps(payload, indent=2), encoding="utf-8")
