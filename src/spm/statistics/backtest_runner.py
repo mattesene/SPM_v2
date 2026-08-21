@@ -19,13 +19,13 @@ def run_dataset(path: str | Path, *, min_history: int = 1) -> DatasetBacktest:
     path = Path(path)
     matches = CSVMatchImporter().load(path)
     summary = chronological_backtest(matches, engine=SPMEngine(), min_history=min_history)
-    return DatasetBacktest(path.name, summary)
+    return DatasetBacktest(str(path), summary)
 
 
 def run_directory(directory: str | Path, *, min_history: int = 1) -> tuple[DatasetBacktest, ...]:
-    """Backtest every CSV in a directory, in deterministic filename order."""
+    """Backtest every historical CSV recursively, in deterministic path order."""
     directory = Path(directory)
-    files = sorted(directory.glob("*.csv"))
+    files = sorted(directory.rglob("*.csv"))
     if not files:
         raise ValueError(f"No CSV datasets found in {directory}")
     return tuple(run_dataset(path, min_history=min_history) for path in files)
