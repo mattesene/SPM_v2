@@ -18,7 +18,8 @@ jobs:
       - run: pytest -q
 
   historical-data-check:
-    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/feat/odds-ingestion')
+    # Historical validation is intentionally run on pushes, PRs and manual runs
+    # so the 35-source catalog cannot silently remain unverified on a PR.
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -47,4 +48,4 @@ jobs:
               raise SystemExit(1)
           PY
 
-# Historical-data validation runs on pushes to feat/odds-ingestion.
+# Historical-data validation is required on every CI event.
