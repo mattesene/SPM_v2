@@ -7,6 +7,12 @@ def test_default_scope_contains_expected_35_sources(tmp_path: Path):
     scope = default_historical_scope(tmp_path)
     assert len(scope.catalog.sources) == 35
     assert len(scope.expected_files) == 35
+    assert any(
+        source.competition == "E0"
+        and source.season == "2526"
+        and source.filename == "E02526.csv"
+        for source in scope.catalog.sources
+    )
     assert not scope.complete
 
 
