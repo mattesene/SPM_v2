@@ -29,7 +29,7 @@ class HistoricalScope:
         return not self.missing_files
 
 
-def default_historical_scope(root: str | Path, *, start_season: int = 2019, end_season: int = 2025) -> HistoricalScope:
-    if (start_season, end_season) != (2019, 2025):
-        raise ValueError("V1 historical scope is fixed to 2019-20 through 2024-25")
+def default_historical_scope(root: str | Path, *, start_season: int = 2019, end_season: int = 2026) -> HistoricalScope:
+    if (start_season, end_season) != (2019, 2026):
+        raise ValueError("V1 historical scope is fixed to 2019-20 through 2025-26")
     return HistoricalScope(default_catalog(), Path(root))
