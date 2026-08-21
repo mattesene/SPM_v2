@@ -6,6 +6,7 @@ from datetime import date
 
 from spm.data.models import Match
 from spm.data.odds import DrawOdds, index_draw_odds
+from spm.data.normalization import canonical_team_name
 from spm.statistics.engine import SPMEngine
 from spm.statistics.profitability import BetResult, ProfitabilitySummary, summarize_bets
 
@@ -43,7 +44,11 @@ def run_oos_draw_strategy(
     engine = SPMEngine()
     bets: list[OOSBet] = []
     for match in ordered:
-        key = (match.date, match.home_team, match.away_team)
+        key = (
+            match.date,
+            canonical_team_name(match.home_team),
+            canonical_team_name(match.away_team),
+        )
         price = odds_index.get(key)
         if price is None:
             continue
