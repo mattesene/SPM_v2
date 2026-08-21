@@ -38,7 +38,11 @@ def run_market_backtest(
     initial_bankroll: float = 1_000.0,
     base_stake: float = 10.0,
 ) -> tuple[tuple[MarketBacktestObservation, ...], OddsStakingResult]:
-    """Run SPM chronologically using only pre-match information."""
+    """Run SPM chronologically using only pre-match information.
+
+    When both teams qualify for the same fixture, the team with the stronger
+    market edge is selected; streak length is the deterministic tie-breaker.
+    """
     match_list = list(matches)
     odds_index = index_draw_odds(list(odds))
     backtest = ChronologicalBacktester(min_history=min_history, threshold=threshold)
@@ -54,19 +58,22 @@ def run_market_backtest(
         home_streak = streaks.get(home, 0)
         away_streak = streaks.get(away, 0)
         selected_team: str | None = None
+
         if draw_odds is not None:
-            signal_home = build_market_signal(
-                home, home_streak, item.probability, draw_odds,
-                min_streak=min_streak, min_edge=min_edge,
+            signals = (
+                build_market_signal(
+                    home, home_streak, item.probability, draw_odds,
+                    min_streak=min_streak, min_edge=min_edge,
+                ),
+                build_market_signal(
+                    away, away_streak, item.probability, draw_odds,
+                    min_streak=min_streak, min_edge=min_edge,
+                ),
             )
-            signal_away = build_market_signal(
-                away, away_streak, item.probability, draw_odds,
-                min_streak=min_streak, min_edge=min_edge,
-            )
-            if signal_home.selected:
-                selected_team = home
-            elif signal_away.selected:
-                selected_team = away
+            qualifying = [signal for signal in signals if signal.selected]
+            if qualifying:
+                best = max(qualifying, key=lambda signal: (signal.edge.edge, signal.streak, signal.team))
+                selected_team = best.team
 
         selected = selected_team is not None
         observations.append(MarketBacktestObservation(
@@ -82,8 +89,6 @@ def run_market_backtest(
             selected_team=selected_team,
         ))
 
-        # Only feed market selections with a known historical draw price into
-        # the odds-aware staking simulation. Missing odds mean no market bet.
         if selected and draw_odds is not None:
             selections.append((bool(item.actual_draw), draw_odds))
 
