@@ -46,3 +46,5 @@ jobs:
                   print(path)
               raise SystemExit(1)
           PY
+
+# Historical-data validation runs on pushes to feat/odds-ingestion.
