@@ -4,9 +4,16 @@ from __future__ import annotations
 import argparse
 import json
 from dataclasses import asdict
+from datetime import date, datetime
 from pathlib import Path
 
 from spm.backtest.historical_runner import run_default_catalog_market_backtest
+
+
+def _json_default(value: object) -> str:
+    if isinstance(value, (date, datetime)):
+        return value.isoformat()
+    raise TypeError(f"Object of type {type(value).__name__} is not JSON serializable")
 
 
 def main() -> None:
@@ -45,8 +52,9 @@ def main() -> None:
         "selected_matches": [asdict(item) for item in with_odds],
     }
     args.output.parent.mkdir(parents=True, exist_ok=True)
-    args.output.write_text(json.dumps(payload, indent=2), encoding="utf-8")
-    print(json.dumps(payload, indent=2))
+    rendered = json.dumps(payload, indent=2, default=_json_default)
+    args.output.write_text(rendered, encoding="utf-8")
+    print(rendered)
 
 
 if __name__ == "__main__":
