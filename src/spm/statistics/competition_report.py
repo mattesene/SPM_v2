@@ -20,7 +20,13 @@ class CompetitionResult:
 
 
 def _parse_dataset(name: str) -> tuple[str, str]:
-    stem = Path(name).stem
+    path = Path(name)
+    parts = path.parts
+    # Historical cache layout: <root>/<competition>/<season>/<filename>.
+    if len(parts) >= 3 and re.fullmatch(r"\d{4}-\d{2}", parts[-2]):
+        return parts[-3], parts[-2].replace("-", "/")
+
+    stem = path.stem
     match = re.match(r"(.+?)[_-](\d{4})[_-](\d{2,4})$", stem)
     if match:
         competition, start, end = match.groups()
