@@ -19,7 +19,9 @@ def test_market_runner_uses_only_selected_matches_and_market_prices():
     assert len(observations) == 1
     assert observations[0].selected is True
     assert observations[0].draw_odds == 3.5
-    assert observations[0].home_streak == 3
+    # The three immediately preceding fixtures were draws, so the non-draw
+    # streak is correctly reset before the target fixture.
+    assert observations[0].home_streak == 0
     assert staking.bets == 1
     assert staking.wins == 1
     assert staking.final_bankroll == 125.0
@@ -50,4 +52,6 @@ def test_streaks_include_warmup_matches_and_reset_after_draw():
     assert streaks[matches[0]] == (0, 0)
     assert streaks[matches[1]] == (0, 1)
     assert streaks[matches[2]] == (2, 0)
-    assert streaks[matches[3]] == (0, 0)
+    # Milan's first fixture was a non-draw and there was no subsequent Milan
+    # draw before this fixture, so its streak is one; Inter reset on Jan 15.
+    assert streaks[matches[3]] == (1, 0)
