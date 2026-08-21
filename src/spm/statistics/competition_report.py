@@ -22,15 +22,25 @@ class CompetitionResult:
 def _parse_dataset(name: str) -> tuple[str, str]:
     path = Path(name)
     parts = path.parts
-    # Historical cache layout: <root>/<competition>/<season>/<filename>.
-    if len(parts) >= 3 and re.fullmatch(r"\d{4}-\d{2}", parts[-2]):
-        return parts[-3], parts[-2].replace("-", "/")
+    # Historical cache layout: <root>/<competition>/<season-code>/<filename>.csv
+    if len(parts) >= 3 and re.fullmatch(r"\d{4}", parts[-2]):
+        season_code = parts[-2]
+        return parts[-3], f"20{season_code[:2]}/{season_code[2:]}"
 
     stem = path.stem
     match = re.match(r"(.+?)[_-](\d{4})[_-](\d{2,4})$", stem)
     if match:
         competition, start, end = match.groups()
         return competition, f"{start}/{end[-2:]}"
+
+    # Football-Data filenames such as E02526.csv.
+    match = re.match(r"^(?P<competition>[A-Za-z]+1?)(?P<start>\d{2})(?P<end>\d{2})$", stem)
+    if match:
+        competition = match.group("competition")
+        start = match.group("start")
+        end = match.group("end")
+        return competition, f"20{start}/{end}"
+
     return stem, "unknown"
 
 
