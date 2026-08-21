@@ -3,6 +3,7 @@ name: tests
 on:
   push:
   pull_request:
+  workflow_dispatch:
 
 jobs:
   test:
@@ -15,3 +16,33 @@ jobs:
       - run: python -m pip install --upgrade pip
       - run: pip install -e ".[test]"
       - run: pytest -q
+
+  historical-data-check:
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: python -m pip install --upgrade pip
+      - run: pip install -e ".[test]"
+      - name: Download and validate 35 historical datasets
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          from spm.data.historical_pipeline import prepare_historical_scope
+          from spm.data.historical_scope import default_historical_scope
+
+          root = Path(".historical-cache")
+          scope = default_historical_scope(root)
+          assert len(scope.catalog.sources) == 35
+          result = prepare_historical_scope(scope)
+          print(f"sources={len(scope.catalog.sources)}")
+          print(f"complete={result.complete}")
+          print(f"missing={len(result.missing)}")
+          if result.missing:
+              for path in result.missing:
+                  print(path)
+              raise SystemExit(1)
+          PY
