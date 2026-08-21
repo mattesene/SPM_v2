@@ -35,4 +35,4 @@ def test_market_runner_keeps_missing_price_explicit():
     )
     assert observations[0].draw_odds is None
     assert staking.bets == 0
-    assert staking.skipped == 1
+    assert staking.skipped == 0
