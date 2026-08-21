@@ -70,7 +70,7 @@ def run_market_backtest(
     backtest = ChronologicalBacktester(min_history=min_history, threshold=threshold)
     raw = backtest.run(match_list)
     observations: list[MarketBacktestObservation] = []
-    selections: list[tuple[bool, float | None]] = []
+    selections: list[tuple[str, bool, float | None]] = []
 
     by_identity: dict[tuple[date, str, str], list[Match]] = {}
     for match in match_list:
@@ -119,7 +119,7 @@ def run_market_backtest(
         ))
 
         if selected and draw_odds is not None:
-            selections.append((bool(item.actual_draw), draw_odds))
+            selections.append((selected_team, bool(item.actual_draw), draw_odds))
 
     staking = simulate_draw_progression_with_odds(
         selections,
