@@ -51,22 +51,19 @@ def run_catalog_staking(
 
 
 def run_catalog_odds_staking(
-    selections_by_dataset: dict[str, list[tuple[bool, float | None]]],
+    selections_by_dataset: dict[str, list[tuple[str, bool, float | None]]],
     *,
     initial_bankroll: float = 1_000.0,
     base_stake: float = 10.0,
 ) -> CatalogOddsStakingResult:
     """Backtest selected matches using their actual decimal draw prices."""
-    selections: list[tuple[bool, float | None]] = []
+    selections: list[tuple[str, bool, float | None]] = []
     for dataset in sorted(selections_by_dataset):
         selections.extend(selections_by_dataset[dataset])
     observations = len(selections)
-    selected = sum(odds is not None for _, odds in selections)
-    draw_rate = (
-        sum(is_draw for is_draw, odds in selections if odds is not None) / selected
-        if selected
-        else 0.0
-    )
+    priced = [row for row in selections if row[2] is not None]
+    selected = len(priced)
+    draw_rate = sum(is_draw for _, is_draw, odds in priced if odds is not None) / selected if selected else 0.0
     staking = simulate_draw_progression_with_odds(
         selections,
         initial_bankroll=initial_bankroll,
