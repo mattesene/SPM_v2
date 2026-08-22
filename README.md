@@ -21,6 +21,10 @@ SPM_v2 now provides:
 - chronological backtesting without future-data leakage;
 - deterministic weight calibration;
 - walk-forward out-of-sample validation;
+- market odds and odds-aware staking/backtesting;
+- out-of-sample edge evaluation and stability-aware Top 5 ranking;
+- machine-readable OOS reporting;
+- standalone HTML prediction dashboard;
 - automated tests through GitHub Actions;
 - command-line prediction interface.
 
@@ -86,6 +90,12 @@ SPM probability / score
      |
      v
 Ranking + backtesting + walk-forward validation
+     |
+     v
+Market edge + staking + OOS stability
+     |
+     v
+HTML dashboard
 ```
 
 ## CLI
@@ -102,6 +112,14 @@ Analyse one or more fixtures:
 spm results.csv --fixture "Inter" "Milan" --fixture "Roma" "Lazio" --as-of 2026-08-08
 ```
 
+Generate a standalone HTML dashboard in addition to the CSV output:
+
+```bash
+spm results.csv --fixture "Inter" "Milan" --fixture "Roma" "Lazio" --as-of 2026-08-08 --html reports/spm.html
+```
+
+The generated page is self-contained and can be opened directly in a browser; it requires no web server or frontend dependency.
+
 The CSV importer expects these columns by default:
 
 `Date, HomeTeam, AwayTeam, FTHG, FTAG`
@@ -112,7 +130,7 @@ Supported dates are `DD/MM/YYYY`, `DD/MM/YY` and `YYYY-MM-DD`.
 
 The backtester and walk-forward validator process matches chronologically. A target match never contributes information to its own prediction or to an earlier prediction. Calibration weights are estimated only on the training window and evaluated on later observations.
 
-The evaluation layer reports accuracy, precision, recall, F1 and Brier score. The current flat-stake ROI is explicitly a research proxy and must not be interpreted as betting profitability until real market odds are imported.
+The evaluation layer reports accuracy, precision, recall, F1 and Brier score. Economic evaluation uses imported historical market odds and keeps price availability and exact match alignment explicit. OOS ranking is restricted to observations with usable prices and includes reliability/stability diagnostics.
 
 ## Development
 
