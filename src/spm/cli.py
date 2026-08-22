@@ -5,6 +5,7 @@ from datetime import date
 
 from spm.data.csv import CSVMatchImporter
 from spm.statistics.engine import SPMEngine
+from spm.web import write_dashboard
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -14,6 +15,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--as-of", default=date.today().isoformat(), help="Prediction date in YYYY-MM-DD format")
     parser.add_argument("--window", type=int, default=5, help="Recent-form window")
     parser.add_argument("--decay", type=float, default=0.85, help="Recent-form decay")
+    parser.add_argument("--html", metavar="PATH", help="Write a standalone HTML dashboard to PATH")
     return parser
 
 
@@ -27,4 +29,7 @@ def main() -> int:
     print("rank,home,away,draw_probability,spm_score")
     for rank, result in enumerate(ranked, start=1):
         print(f"{rank},{result.home_team},{result.away_team},{result.draw_probability:.4f},{result.spm_score:.2f}")
+    if args.html:
+        write_dashboard(ranked, as_of=args.as_of, path=args.html)
+        print(f"html_report,{args.html}")
     return 0
