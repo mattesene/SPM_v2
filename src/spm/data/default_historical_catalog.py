@@ -1,18 +1,12 @@
-"""Default historical competition/season scope used by SPM."""
+"""Default historical dataset scope for SPM_v2 V1."""
 from __future__ import annotations
 
 from .historical_catalog import HistoricalCatalog, build_catalog
 
-# Football-Data competition codes for the five major European leagues.
 DEFAULT_COMPETITIONS = ("E0", "E1", "D1", "I1", "SP1")
+# 2019/20 through 2025/26 inclusive.
+DEFAULT_SEASONS = tuple(f"{year % 100:02d}{(year + 1) % 100:02d}" for year in range(19, 26))
 
 
-def default_catalog(start_season: int = 2019, end_season: int = 2025) -> HistoricalCatalog:
-    """Build the default scope from the 2019-20 through 2024-25 seasons."""
-    if start_season < 1993 or end_season <= start_season:
-        raise ValueError("invalid season range")
-    seasons = tuple(
-        f"{year % 100:02d}{(year + 1) % 100:02d}"
-        for year in range(start_season, end_season)
-    )
-    return build_catalog(list(DEFAULT_COMPETITIONS), list(seasons))
+def default_catalog() -> HistoricalCatalog:
+    return build_catalog(list(DEFAULT_COMPETITIONS), list(DEFAULT_SEASONS))
