@@ -17,6 +17,7 @@ class PipelineReport:
     rejected: int
     stored: int
     completed: int
+    conflicts: int = 0
 
 
 def ingest_football_data_csv(
@@ -31,6 +32,12 @@ def ingest_football_data_csv(
     issues = validate_records(records, as_of=as_of)
     bad_indexes = {issue.record_index for issue in issues}
     clean = [record for index, record in enumerate(records) if index not in bad_indexes]
-    clean = reconcile(clean)
-    report: IngestionReport = IngestionService(repository).ingest(clean)
-    return PipelineReport(len(records), len(bad_indexes), report.stored, report.completed)
+    reconciliation = reconcile(clean)
+    report: IngestionReport = IngestionService(repository).ingest(reconciliation.matches)
+    return PipelineReport(
+        len(records),
+        len(bad_indexes),
+        report.stored,
+        report.completed,
+        len(reconciliation.conflicts),
+    )
