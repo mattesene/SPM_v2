@@ -11,7 +11,8 @@ def test_odds_staking_uses_match_specific_price_and_resets_on_draw():
     )
     assert result.bets == 2
     assert result.wins == 1
-    assert result.final_bankroll == pytest.approx(160.0)
+    # Loss: 100 - 10 = 90. Win: 90 - 20 + (20 * 3.5) = 140.
+    assert result.final_bankroll == pytest.approx(140.0)
 
 
 def test_missing_odds_are_skipped_without_changing_progression():
@@ -22,7 +23,9 @@ def test_missing_odds_are_skipped_without_changing_progression():
     )
     assert result.skipped == 1
     assert result.bets == 2
-    assert result.final_bankroll == pytest.approx(150.0)
+    # The missing price does not consume a stake. The next bet uses the
+    # doubled 20 stake: 100 - 10 - 20 + (20 * 3) = 130.
+    assert result.final_bankroll == pytest.approx(130.0)
 
 
 def test_progressions_are_independent_per_team():
@@ -33,7 +36,9 @@ def test_progressions_are_independent_per_team():
     )
     assert result.bets == 3
     assert result.wins == 1
-    assert result.final_bankroll == pytest.approx(140.0)
+    # Milan loses 10, Inter loses 10, then Milan uses 20 and wins 60:
+    # 100 - 10 - 10 - 20 + 60 = 120.
+    assert result.final_bankroll == pytest.approx(120.0)
 
 
 def test_invalid_odds_are_rejected():
