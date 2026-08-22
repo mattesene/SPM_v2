@@ -29,7 +29,7 @@ body {{ margin:0; background:#0b1020; color:#edf2f7; }} main {{ max-width:1180px
 table {{ width:100%; border-collapse:collapse; }} th,td {{ padding:15px 14px; text-align:left; border-bottom:1px solid #22304a; }}
 th {{ color:#9aa7bd; font-size:12px; text-transform:uppercase; letter-spacing:.06em; }} tbody tr:hover {{ background:#182239; }} tbody tr:first-child td {{ background:#17243a; }}
 .empty {{ text-align:center; color:#9aa7bd; padding:40px; }} @media(max-width:760px) {{ main {{ padding:24px 12px; }} .hero {{ align-items:start; flex-direction:column; }} .card {{ overflow-x:auto; }} table {{ min-width:760px; }} }}
-</style></head><body><main><section class="hero"><div><h1>SPM_v2</h1><div class="subtitle">Statistical Pareggio Model · ranking delle probabilità di pareggio</div></div>
+</style></head><body><main><section class="hero"><div><h1>SPM_v2</h1><div class="subtitle">Statistical Pareggio Model · Top 5 opportunità filtrate</div></div>
 <div class="badge">Analisi al {escape(as_of)}</div></section><section class="card"><table><thead><tr><th>#</th><th>Casa</th><th>Ospite</th><th>Pareggio</th><th>SPM Score</th><th>Forma</th><th>Segnale X</th><th>Equilibrio gol</th></tr></thead>
 <tbody>{body}</tbody></table></section></main></body></html>'''
 
