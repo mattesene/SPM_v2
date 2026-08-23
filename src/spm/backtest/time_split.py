@@ -6,18 +6,28 @@ from dataclasses import dataclass
 from datetime import date
 
 from ..data.models import Match
+from ..data.odds import DrawOdds
 
 
 @dataclass(frozen=True, slots=True)
 class TemporalSplit:
     train: tuple[Match, ...]
     oos: tuple[Match, ...]
+    train_odds: tuple[DrawOdds, ...]
+    oos_odds: tuple[DrawOdds, ...]
     cutoff: date
 
 
-def split_train_oos(matches: Sequence[Match], cutoff: date) -> TemporalSplit:
-    """Split chronologically: train strictly before cutoff, OOS on/after cutoff."""
-    ordered = tuple(sorted(matches, key=lambda item: item.date))
-    train = tuple(item for item in ordered if item.date < cutoff)
-    oos = tuple(item for item in ordered if item.date >= cutoff)
-    return TemporalSplit(train=train, oos=oos, cutoff=cutoff)
+def split_train_oos(
+    matches: Sequence[Match], odds: Sequence[DrawOdds], cutoff: date
+) -> TemporalSplit:
+    """Split matches and odds using the same chronological boundary."""
+    ordered_matches = tuple(sorted(matches, key=lambda item: item.date))
+    ordered_odds = tuple(sorted(odds, key=lambda item: item.date))
+    return TemporalSplit(
+        train=tuple(item for item in ordered_matches if item.date < cutoff),
+        oos=tuple(item for item in ordered_matches if item.date >= cutoff),
+        train_odds=tuple(item for item in ordered_odds if item.date < cutoff),
+        oos_odds=tuple(item for item in ordered_odds if item.date >= cutoff),
+        cutoff=cutoff,
+    )
