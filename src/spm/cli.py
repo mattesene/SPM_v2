@@ -26,9 +26,7 @@ def main() -> int:
     args = build_parser().parse_args()
     matches = MatchRepository(args.db).load_matches() if args.db else CSVMatchImporter().load(args.results)
     as_of = date.fromisoformat(args.as_of)
-    ranked = SPMEngine(form_window=args.window, decay=args.decay).rank(
-        matches, [(home, away) for home, away in args.fixture], as_of
-    )
+    ranked = SPMEngine(form_window=args.window, decay=args.decay).rank(matches, args.fixture, as_of)
     print("rank,home,away,draw_probability,spm_score")
     for rank, result in enumerate(ranked, start=1):
         print(f"{rank},{result.home_team},{result.away_team},{result.draw_probability:.4f},{result.spm_score:.2f}")
