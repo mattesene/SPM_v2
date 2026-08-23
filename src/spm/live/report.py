@@ -24,6 +24,7 @@ def build_upcoming_live_report(
     min_bets: int = 20,
     min_profitable_window_rate: float = 0.50,
     oos_weight: float = 0.40,
+    live_status: str = "LIVE AGGIORNATO",
 ) -> tuple:
     """Run the complete fixture-to-dashboard production flow."""
     candidates = build_upcoming_top5(
@@ -36,5 +37,5 @@ def build_upcoming_live_report(
         min_profitable_window_rate=min_profitable_window_rate,
         oos_weight=oos_weight,
     )
-    write_live_dashboard(candidates, as_of=as_of.isoformat(), path=path)
+    write_live_dashboard(candidates, as_of=as_of.isoformat(), path=path, live_status=live_status)
     return candidates
