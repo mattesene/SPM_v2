@@ -3,6 +3,7 @@ import sqlite3
 from datetime import date
 from pathlib import Path
 
+from .fixtures import Fixture
 from .models import Match
 from .normalized import MatchRecord
 from .stats import MatchStats
@@ -26,6 +27,11 @@ class MatchRepository:
                 competition TEXT, season TEXT,
                 UNIQUE(date, home_team, away_team, competition)
             )""")
+            db.execute("""CREATE TABLE IF NOT EXISTS fixtures (
+                id INTEGER PRIMARY KEY, date TEXT NOT NULL, home_team TEXT NOT NULL,
+                away_team TEXT NOT NULL, competition TEXT,
+                UNIQUE(date, home_team, away_team, competition)
+            )""")
             db.execute("""CREATE TABLE IF NOT EXISTS provenance (
                 id INTEGER PRIMARY KEY, match_id INTEGER NOT NULL REFERENCES matches(id) ON DELETE CASCADE,
                 source TEXT NOT NULL, source_id TEXT, source_url TEXT, retrieved_at TEXT,
@@ -39,6 +45,7 @@ class MatchRepository:
                 UNIQUE(match_id, source)
             )""")
             db.execute("CREATE INDEX IF NOT EXISTS idx_matches_date ON matches(date)")
+            db.execute("CREATE INDEX IF NOT EXISTS idx_fixtures_date ON fixtures(date)")
             db.execute("CREATE INDEX IF NOT EXISTS idx_provenance_match ON provenance(match_id)")
             db.execute("CREATE INDEX IF NOT EXISTS idx_stats_match ON match_stats(match_id)")
 
@@ -50,6 +57,25 @@ class MatchRepository:
         if row is None:
             raise RuntimeError("failed to locate match")
         return int(row[0])
+
+    def upsert_fixture(self, fixture: Fixture) -> None:
+        with self._connect() as db:
+            db.execute(
+                """INSERT INTO fixtures(date,home_team,away_team,competition)
+                VALUES(?,?,?,?) ON CONFLICT(date,home_team,away_team,competition) DO NOTHING""",
+                (fixture.date.isoformat(), fixture.home_team.strip(), fixture.away_team.strip(), fixture.competition),
+            )
+
+    def load_fixtures(self, *, from_date: date | None = None) -> list[Fixture]:
+        query = "SELECT date, home_team, away_team, competition FROM fixtures"
+        params: tuple[str, ...] = ()
+        if from_date is not None:
+            query += " WHERE date >= ?"
+            params = (from_date.isoformat(),)
+        query += " ORDER BY date, id"
+        with self._connect() as db:
+            rows = db.execute(query, params).fetchall()
+        return [Fixture(date.fromisoformat(row[0]), row[1], row[2], row[3]) for row in rows]
 
     def upsert(self, record: MatchRecord) -> None:
         with self._connect() as db:
