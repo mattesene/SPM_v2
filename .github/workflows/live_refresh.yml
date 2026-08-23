@@ -18,19 +18,11 @@ jobs:
           python-version: "3.12"
       - run: pip install -e .
       - name: Validate Live inputs
-        env:
-          SPM_DB: ${{ secrets.SPM_DB_PATH }}
-          SPM_OOS: ${{ secrets.SPM_OOS_PATH }}
         run: |
-          test -n "$SPM_DB"
-          test -n "$SPM_OOS"
-          test -f "$SPM_DB"
-          test -f "$SPM_OOS"
+          test -f data/live/spm.db
+          test -f data/live/oos.csv
       - name: Refresh Live report
-        env:
-          SPM_DB: ${{ secrets.SPM_DB_PATH }}
-          SPM_OOS: ${{ secrets.SPM_OOS_PATH }}
-        run: python -m spm.cli --db "$SPM_DB" --live --oos "$SPM_OOS" --html live.html
+        run: python -m spm.cli --db data/live/spm.db --live --oos data/live/oos.csv --html live.html
       - uses: actions/upload-artifact@v4
         with:
           name: spm-live-dashboard
