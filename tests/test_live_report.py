@@ -15,4 +15,6 @@ def test_build_live_report_renders_selected_top5(tmp_path: Path) -> None:
     assert "SPM_v2 · Live" in html
     assert "Combined" in html
     assert "Confidence" in html
+    assert "OPPORTUNITÀ VALIDE" in html
+    assert "CONFIDENCE ≥ 70%" in html
     assert html.count('class="card') == 5
