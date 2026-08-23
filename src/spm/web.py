@@ -9,14 +9,14 @@ from spm.statistics.engine import SPMScore
 
 
 def render_dashboard(results: Iterable[SPMScore], *, as_of: str) -> str:
-    rows = tuple(results)
+    rows = tuple(results)[:5]
     cards = "\n".join(
         f'''<article class="opportunity {'featured' if index == 1 else ''}">
 <div class="op-head"><span class="rank">#{index}</span><span class="tag">OPPORTUNITÀ</span></div>
 <div class="fixture"><div><strong>{escape(item.home_team)}</strong><span>Casa</span></div><div class="vs">X</div><div><strong>{escape(item.away_team)}</strong><span>Ospite</span></div></div>
 <div class="metrics"><div><small>Probabilità X</small><b>{item.draw_probability:.1%}</b></div><div><small>SPM Score</small><b>{item.spm_score:.1f}</b></div><div><small>Forma</small><b>{item.form_balance:.1%}</b></div><div><small>Segnale X</small><b>{item.draw_signal:.1%}</b></div><div><small>Equilibrio gol</small><b>{item.goal_balance_signal:.1%}</b></div></div>
 </article>'''
-        for index, item in enumerate(rows[:5], start=1)
+        for index, item in enumerate(rows, start=1)
     )
     if not cards:
         cards = '<div class="empty">Nessuna opportunità disponibile</div>'
