@@ -2,6 +2,8 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import date
+
 from spm.data.fixtures import Fixture
 
 
@@ -14,17 +16,20 @@ class FixtureQuality:
 
 def quality_gate(fixtures: list[Fixture]) -> FixtureQuality:
     accepted: list[Fixture] = []
-    seen: set[tuple[str, str, object]] = set()
+    seen: set[tuple[str, str, date]] = set()
     rejected = 0
     duplicates = 0
     for fixture in fixtures:
-        if not fixture.home.strip() or not fixture.away.strip() or fixture.home == fixture.away:
+        home = " ".join(fixture.home.strip().split())
+        away = " ".join(fixture.away.strip().split())
+        if not home or not away or home == away:
             rejected += 1
             continue
-        key = (fixture.home, fixture.away, fixture.kickoff)
+        normalized = Fixture(home, away, fixture.kickoff)
+        key = (normalized.home, normalized.away, normalized.kickoff)
         if key in seen:
             duplicates += 1
             continue
         seen.add(key)
-        accepted.append(fixture)
+        accepted.append(normalized)
     return FixtureQuality(accepted, rejected, duplicates)
