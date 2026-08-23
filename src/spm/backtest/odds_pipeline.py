@@ -11,7 +11,7 @@ from .odds_adapter import attach_odds_to_oos
 
 @dataclass(frozen=True, slots=True)
 class OOSOddsPipelineResult:
-    selections_by_dataset: dict[str, list[tuple[bool, float | None]]]
+    selections_by_dataset: dict[str, list[tuple[str, bool, float | None]]]
     staking: CatalogOddsStakingResult
 
 
@@ -22,11 +22,13 @@ def run_oos_odds_pipeline(
     initial_bankroll: float = 1_000.0,
     base_stake: float = 10.0,
 ) -> OOSOddsPipelineResult:
-    selections_by_dataset: dict[str, list[tuple[bool, float | None]]] = {}
+    selections_by_dataset: dict[str, list[tuple[str, bool, float | None]]] = {}
     for dataset in sorted(observations_by_dataset):
         attached = attach_odds_to_oos(observations_by_dataset[dataset], odds)
         selections_by_dataset[dataset] = [
-            (item.is_draw, item.draw_odds) for item in attached if item.selected
+            (item.home_team, item.is_draw, item.draw_odds)
+            for item in attached
+            if item.selected
         ]
     staking = run_catalog_odds_staking(
         selections_by_dataset,
