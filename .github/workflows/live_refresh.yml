@@ -17,14 +17,20 @@ jobs:
         with:
           python-version: "3.12"
       - run: pip install -e .
-      - name: Refresh Live report
+      - name: Validate Live inputs
         env:
           SPM_DB: ${{ secrets.SPM_DB_PATH }}
           SPM_OOS: ${{ secrets.SPM_OOS_PATH }}
         run: |
           test -n "$SPM_DB"
           test -n "$SPM_OOS"
-          python -m spm.cli --db "$SPM_DB" --live --oos "$SPM_OOS" --html live.html
+          test -f "$SPM_DB"
+          test -f "$SPM_OOS"
+      - name: Refresh Live report
+        env:
+          SPM_DB: ${{ secrets.SPM_DB_PATH }}
+          SPM_OOS: ${{ secrets.SPM_OOS_PATH }}
+        run: python -m spm.cli --db "$SPM_DB" --live --oos "$SPM_OOS" --html live.html
       - uses: actions/upload-artifact@v4
         with:
           name: spm-live-dashboard
