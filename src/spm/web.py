@@ -10,30 +10,33 @@ from spm.statistics.engine import SPMScore
 
 def render_dashboard(results: Iterable[SPMScore], *, as_of: str) -> str:
     rows = tuple(results)
-    body = "\n".join(
-        f'<tr><td><span class="rank">{index}</span></td><td><strong>{escape(item.home_team)}</strong><br><span class="muted">vs</span><br><strong>{escape(item.away_team)}</strong></td>'
-        f'<td><span class="prob">{item.draw_probability:.1%}</span></td><td><strong>{item.spm_score:.1f}</strong></td>'
-        f'<td>{item.form_balance:.1%}</td><td>{item.draw_signal:.1%}</td><td>{item.goal_balance_signal:.1%}</td></tr>'
-        for index, item in enumerate(rows, start=1)
+    cards = "\n".join(
+        f'''<article class="opportunity {'featured' if index == 1 else ''}">
+<div class="op-head"><span class="rank">#{index}</span><span class="tag">OPPORTUNITÀ</span></div>
+<div class="fixture"><div><strong>{escape(item.home_team)}</strong><span>Casa</span></div><div class="vs">X</div><div><strong>{escape(item.away_team)}</strong><span>Ospite</span></div></div>
+<div class="metrics"><div><small>Probabilità X</small><b>{item.draw_probability:.1%}</b></div><div><small>SPM Score</small><b>{item.spm_score:.1f}</b></div><div><small>Forma</small><b>{item.form_balance:.1%}</b></div><div><small>Segnale X</small><b>{item.draw_signal:.1%}</b></div><div><small>Equilibrio gol</small><b>{item.goal_balance_signal:.1%}</b></div></div>
+</article>'''
+        for index, item in enumerate(rows[:5], start=1)
     )
-    if not body:
-        body = '<tr><td colspan="7" class="empty">Nessuna opportunità disponibile</td></tr>'
+    if not cards:
+        cards = '<div class="empty">Nessuna opportunità disponibile</div>'
     return f'''<!doctype html>
 <html lang="it"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>SPM_v2 — Dashboard</title><style>
 :root {{ color-scheme: dark; font-family: Inter,system-ui,-apple-system,sans-serif; }}
-* {{ box-sizing:border-box }} body {{ margin:0; background:#080d18; color:#edf2f7; }} main {{ max-width:1180px; margin:0 auto; padding:42px 22px 70px; }}
-.hero {{ display:flex; justify-content:space-between; gap:24px; align-items:end; margin-bottom:30px; }} h1 {{ margin:0; font-size:34px; letter-spacing:-.03em; }}
+* {{ box-sizing:border-box }} body {{ margin:0; background:#080d18; color:#edf2f7; }} main {{ max-width:1120px; margin:0 auto; padding:42px 22px 70px; }}
+.hero {{ display:flex; justify-content:space-between; gap:24px; align-items:end; margin-bottom:32px; }} h1 {{ margin:0; font-size:36px; letter-spacing:-.04em; }}
 .subtitle {{ color:#91a0b7; margin-top:8px; }} .badge {{ padding:10px 14px; border:1px solid #2b3951; border-radius:999px; color:#c4d0e0; white-space:nowrap; }}
-.card {{ background:#101827; border:1px solid #243249; border-radius:20px; overflow:hidden; box-shadow:0 20px 55px rgba(0,0,0,.25); }}
-.table-wrap {{ overflow-x:auto }} table {{ width:100%; border-collapse:collapse; min-width:760px; }} th,td {{ padding:16px 14px; text-align:left; border-bottom:1px solid #202d42; }}
-th {{ color:#8190a7; font-size:11px; text-transform:uppercase; letter-spacing:.08em; }} tbody tr:hover {{ background:#162033; }} tbody tr:first-child {{ background:#142238; }}
-.rank {{ display:inline-flex; width:32px; height:32px; align-items:center; justify-content:center; border-radius:50%; background:#1b2b43; font-weight:700; }}
-.prob {{ font-size:18px; font-weight:800; }} .muted {{ color:#718198; font-size:12px; }} .empty {{ text-align:center; color:#91a0b7; padding:48px; }}
-@media(max-width:760px) {{ main {{ padding:26px 12px 50px; }} .hero {{ align-items:start; flex-direction:column; }} }}
+.grid {{ display:grid; gap:14px; }} .opportunity {{ background:#101827; border:1px solid #243249; border-radius:20px; padding:20px; box-shadow:0 14px 38px rgba(0,0,0,.18); }}
+.opportunity.featured {{ border-color:#3b5578; background:#121e30; }} .op-head {{ display:flex; align-items:center; justify-content:space-between; margin-bottom:20px; }}
+.rank {{ font-weight:800; font-size:16px; }} .tag {{ font-size:10px; letter-spacing:.1em; color:#8fa1bb; border:1px solid #30415b; padding:6px 9px; border-radius:999px; }}
+.fixture {{ display:grid; grid-template-columns:1fr 46px 1fr; align-items:center; gap:12px; margin-bottom:20px; }} .fixture div:not(.vs) {{ display:flex; flex-direction:column; gap:4px; }}
+.fixture div:last-child {{ text-align:right; }} .fixture strong {{ font-size:20px; }} .fixture span {{ color:#74849d; font-size:11px; text-transform:uppercase; }} .vs {{ width:40px; height:40px; display:flex; align-items:center; justify-content:center; border-radius:50%; background:#1b2b43; color:#a9bad2; font-weight:800; }}
+.metrics {{ display:grid; grid-template-columns:repeat(5,1fr); border-top:1px solid #202d42; padding-top:16px; gap:10px; }} .metrics div {{ display:flex; flex-direction:column; gap:5px; }} .metrics small {{ color:#74849d; font-size:10px; text-transform:uppercase; letter-spacing:.06em; }} .metrics b {{ font-size:16px; }}
+.empty {{ padding:48px; text-align:center; color:#91a0b7; background:#101827; border:1px solid #243249; border-radius:20px; }}
+@media(max-width:760px) {{ main {{ padding:26px 12px 50px; }} .hero {{ align-items:start; flex-direction:column; }} .metrics {{ grid-template-columns:repeat(2,1fr); }} .fixture strong {{ font-size:17px; }} }}
 </style></head><body><main><section class="hero"><div><h1>SPM_v2</h1><div class="subtitle">Top 5 opportunità di pareggio · analisi statistica</div></div>
-<div class="badge">Analisi al {escape(as_of)}</div></section><section class="card"><div class="table-wrap"><table><thead><tr><th>#</th><th>Partita</th><th>Probabilità X</th><th>SPM Score</th><th>Forma</th><th>Segnale X</th><th>Equilibrio gol</th></tr></thead>
-<tbody>{body}</tbody></table></div></section></main></body></html>'''
+<div class="badge">Analisi al {escape(as_of)}</div></section><section class="grid">{cards}</section></main></body></html>'''
 
 
 def write_dashboard(results: Iterable[SPMScore], *, as_of: str, path: str | Path) -> None:
