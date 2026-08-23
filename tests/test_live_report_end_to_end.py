@@ -8,12 +8,12 @@ from spm.live.report import build_upcoming_live_report
 
 def test_build_upcoming_live_report_creates_dashboard(tmp_path) -> None:
     matches = [
-        Match("H0", "A0", date(2026, 8, 1), 1, 1),
-        Match("H1", "A1", date(2026, 8, 2), 0, 0),
+        Match(date(2026, 8, 1), "H0", "A0", 1, 1),
+        Match(date(2026, 8, 2), "H1", "A1", 0, 0),
     ]
     fixtures = [
-        Fixture("H0", "A0", date(2026, 8, 24)),
-        Fixture("H1", "A1", date(2026, 8, 25)),
+        Fixture(date(2026, 8, 24), "H0", "A0"),
+        Fixture(date(2026, 8, 25), "H1", "A1"),
     ]
     evidence = [
         OOSRankingEntry("H0 vs A0", 20, 100.0, .10, .80, 0, 0, 0),
