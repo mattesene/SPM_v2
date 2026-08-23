@@ -34,7 +34,7 @@ def main() -> int:
             raise SystemExit("--live richiede --db, --oos e --html")
         from spm.backtest.oos_ranking import load_oos_ranking
         entries = load_oos_ranking(args.oos)
-        run_live_from_database(args.db, entries, as_of=as_of, output=args.html)
+        run_live_from_database(args.db, entries, as_of=as_of, output=args.html, oos_path=args.oos)
         print(f"live_report,{args.html}")
         return 0
 
