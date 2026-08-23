@@ -1,6 +1,6 @@
 """SQLite persistence for normalized SPM records, provenance and match stats."""
 import sqlite3
-from datetime import date
+from datetime import date, datetime, timezone
 from pathlib import Path
 
 from .fixtures import Fixture
@@ -44,6 +44,9 @@ class MatchRepository:
                 possession_home REAL, possession_away REAL, corners_home INTEGER, corners_away INTEGER,
                 UNIQUE(match_id, source)
             )""")
+            db.execute("""CREATE TABLE IF NOT EXISTS live_metadata (
+                key TEXT PRIMARY KEY, value TEXT NOT NULL
+            )""")
             db.execute("CREATE INDEX IF NOT EXISTS idx_matches_date ON matches(date)")
             db.execute("CREATE INDEX IF NOT EXISTS idx_fixtures_date ON fixtures(date)")
             db.execute("CREATE INDEX IF NOT EXISTS idx_provenance_match ON provenance(match_id)")
@@ -65,6 +68,21 @@ class MatchRepository:
                 VALUES(?,?,?,?) ON CONFLICT(date,home_team,away_team,competition) DO NOTHING""",
                 (fixture.date.isoformat(), fixture.home_team.strip(), fixture.away_team.strip(), fixture.competition),
             )
+
+    def mark_fixtures_refreshed(self, when: datetime | None = None) -> None:
+        timestamp = (when or datetime.now(timezone.utc)).isoformat()
+        with self._connect() as db:
+            db.execute(
+                "INSERT INTO live_metadata(key,value) VALUES('fixtures_refreshed_at',?) "
+                "ON CONFLICT(key) DO UPDATE SET value=excluded.value",
+                (timestamp,),
+            )
+
+    @property
+    def fixtures_refreshed_at(self) -> datetime | None:
+        with self._connect() as db:
+            row = db.execute("SELECT value FROM live_metadata WHERE key='fixtures_refreshed_at'").fetchone()
+        return datetime.fromisoformat(row[0]) if row else None
 
     def load_fixtures(self, *, from_date: date | None = None) -> list[Fixture]:
         query = "SELECT date, home_team, away_team, competition FROM fixtures"
