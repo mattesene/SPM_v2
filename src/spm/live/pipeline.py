@@ -27,6 +27,8 @@ def acquire_and_normalize(provider: FixtureProvider, repository: MatchRepository
     quality = quality_gate(fixtures)
     for fixture in quality.accepted:
         repository.upsert_fixture(fixture)
+    if quality.accepted:
+        repository.mark_fixtures_refreshed()
     return PipelineResult(
         fetched=len(raw),
         written=len(quality.accepted),
