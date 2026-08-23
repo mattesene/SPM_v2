@@ -16,6 +16,7 @@ class LiveCandidate:
     profitable_window_rate: float
     bets: int
     combined_score: float
+    confidence: float
 
 
 def select_live_candidates(
@@ -43,9 +44,15 @@ def select_live_candidates(
         if entry is None:
             continue
         combined = (1.0 - oos_weight) * score.spm_score + oos_weight * entry.score
+        confidence = (
+            0.35 * score.draw_probability
+            + 0.25 * score.draw_signal
+            + 0.20 * score.form_balance
+            + 0.20 * entry.profitable_window_rate
+        )
         candidates.append(LiveCandidate(
             (score.home_team, score.away_team), score.spm_score, entry.score,
-            entry.profitable_window_rate, entry.bets, combined,
+            entry.profitable_window_rate, entry.bets, combined, confidence,
         ))
-    candidates.sort(key=lambda item: (-item.combined_score, item.fixture))
+    candidates.sort(key=lambda item: (-item.combined_score, -item.confidence, item.fixture))
     return tuple(candidates[:limit])
