@@ -2,17 +2,27 @@ name: ci-sanity
 
 on:
   push:
-    branches: ["feat/odds-ingestion"]
+    branches:
+      - "**"
+  pull_request:
+    branches:
+      - main
   workflow_dispatch:
+
+permissions:
+  contents: read
 
 jobs:
   sanity:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
+          cache: pip
       - run: python -m pip install --upgrade pip
       - run: pip install -e ".[test]"
-      - run: pytest -q tests/test_report.py tests/test_odds_staking.py tests/test_historical_backtest_gate.py
+      - name: Run release-critical tests
+        run: pytest -q tests/test_report.py tests/test_odds_staking.py tests/test_historical_backtest_gate.py
