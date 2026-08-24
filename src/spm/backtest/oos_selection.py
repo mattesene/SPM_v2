@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Iterable, Sequence
+from typing import Iterable
 
 
 @dataclass(frozen=True, slots=True)
@@ -36,7 +36,6 @@ def build_oos_candidate(
     if max_drawdown < 0 or max_exposure < 0:
         raise ValueError("risk metrics cannot be negative")
     roi = profit / initial_bankroll
-    # Reward return and hit rate, while penalising drawdown and exposure.
     score = roi + (wins / bets if bets else 0.0) * 0.10 - (max_drawdown / initial_bankroll) * 0.25 - (max_exposure / initial_bankroll) * 0.05
     return OOSCandidate(key, bets, wins, profit, roi, max_drawdown, max_exposure, score)
 

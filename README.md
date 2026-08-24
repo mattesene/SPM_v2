@@ -6,7 +6,7 @@ SPM_v2 is a Python application for statistical analysis and modelling of footbal
 
 ## Current status
 
-SPM_v2 now provides:
+SPM_v2 provides:
 
 - validated football-result domain models;
 - CSV historical-data ingestion;
@@ -21,10 +21,10 @@ SPM_v2 now provides:
 - chronological backtesting without future-data leakage;
 - deterministic weight calibration;
 - walk-forward out-of-sample validation;
-- market odds and odds-aware staking/backtesting;
-- out-of-sample edge evaluation and stability-aware Top 5 ranking;
-- machine-readable OOS reporting;
-- standalone HTML prediction dashboard;
+- historical draw-market odds ingestion and deterministic match/odds reconciliation;
+- odds-aware staking simulation for the draw progression strategy;
+- aggregate historical backtest reporting by competition/season;
+- automated historical-data validation in GitHub Actions;
 - automated tests through GitHub Actions;
 - command-line prediction interface.
 
@@ -34,69 +34,48 @@ The supplied sources are intentionally assigned different roles rather than blin
 
 The ingestion layer records source provenance so the same match or statistic can be reconciled across providers. Automated collection will only use access methods permitted by each provider's terms and technical restrictions; a website being listed as a source does not imply permission to bypass anti-bot controls or access restrictions.
 
+Historical market prices are treated separately from match results. A draw price is joined deterministically to the corresponding canonical fixture and is used only after the chronological model decision, preventing future market information from leaking into the model features.
+
 ## Data pipeline
 
 ```text
 Provider adapters
       |
       v
-Canonical MatchRecord
+Canonical MatchRecord + historical market odds
       |
       v
-Team-name normalization
-      |
-      v
-Multi-source reconciliation
+Team-name normalization / deterministic reconciliation
       |
       v
 SQLite + provenance
       |
       v
 SPM statistics / model
-```
-
-The provider layer is intentionally adapter-based. A source can be added without changing the statistical engine. The current implementation includes a canonical CSV adapter and the interfaces needed for permitted provider-specific adapters.
-
-## Architecture
-
-```text
-External sources
-     |
-     v
-Source registry + provenance
-     |
-     v
-Canonical MatchRecord
-     |
-     v
-Match / Season
-     |
-     +--> team statistics
-     +--> recent form
-     +--> draw history
-     +--> goal balance
-     |
-     v
-Poisson baseline
-     |
-     v
-SPM feature vector
-     |
-     v
+      |
+      v
+Poisson baseline + SPM feature vector
+      |
+      v
 Calibrated weights
-     |
-     v
-SPM probability / score
-     |
-     v
+      |
+      v
+Chronological OOS probability / selection
+      |
+      +--> historical draw odds
+      |
+      v
+Odds-aware staking simulation
+      |
+      v
 Ranking + backtesting + walk-forward validation
-     |
-     v
-Market edge + staking + OOS stability
-     |
-     v
-HTML dashboard
 ```
+
+## Historical validation
+
+The default historical catalog contains 35 datasets covering the configured 2019/20–2025/26 scope. GitHub Actions validates that every expected dataset can be downloaded or retrieved from cache before the historical backtest is executed. The validation and backtest reports are uploaded as CI artifacts.
+
+The historical backtest processes matches chronologically and keeps target-match information out of the prediction. Market odds are used for staking/evaluation after the model selection, not as a feature of the same prediction.
 
 ## CLI
 
@@ -112,14 +91,6 @@ Analyse one or more fixtures:
 spm results.csv --fixture "Inter" "Milan" --fixture "Roma" "Lazio" --as-of 2026-08-08
 ```
 
-Generate a standalone HTML dashboard in addition to the CSV output:
-
-```bash
-spm results.csv --fixture "Inter" "Milan" --fixture "Roma" "Lazio" --as-of 2026-08-08 --html reports/spm.html
-```
-
-The generated page is self-contained and can be opened directly in a browser; it requires no web server or frontend dependency.
-
 The CSV importer expects these columns by default:
 
 `Date, HomeTeam, AwayTeam, FTHG, FTAG`
@@ -130,7 +101,7 @@ Supported dates are `DD/MM/YYYY`, `DD/MM/YY` and `YYYY-MM-DD`.
 
 The backtester and walk-forward validator process matches chronologically. A target match never contributes information to its own prediction or to an earlier prediction. Calibration weights are estimated only on the training window and evaluated on later observations.
 
-The evaluation layer reports accuracy, precision, recall, F1 and Brier score. Economic evaluation uses imported historical market odds and keeps price availability and exact match alignment explicit. OOS ranking is restricted to observations with usable prices and includes reliability/stability diagnostics.
+The evaluation layer reports accuracy, precision, recall, F1 and Brier score. Odds-aware staking uses the historical draw price actually associated with the selected fixture and does not substitute an assumed constant market price.
 
 ## Development
 

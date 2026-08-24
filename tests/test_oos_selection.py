@@ -1,5 +1,3 @@
-import pytest
-
 from spm.backtest.oos_selection import OOSCandidate, select_top_oos_candidates
 
 

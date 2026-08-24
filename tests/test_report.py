@@ -14,8 +14,8 @@ def test_aggregate_directory(tmp_path: Path) -> None:
     )
     report = aggregate_directory(tmp_path)
     assert len(report.datasets) == 1
-    assert report.evaluated == 1
-    assert report.skipped == 3
+    assert report.evaluated == 2
+    assert report.skipped == 2
     assert 0 <= report.brier_score <= 1
     assert 0 <= report.actual_draw_rate <= 1
     assert csv_rows(report)[0].startswith("dataset,")

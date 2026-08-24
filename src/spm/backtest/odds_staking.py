@@ -16,46 +16,50 @@ class OddsStakingResult:
 
 
 def simulate_draw_progression_with_odds(
-    selections: list[tuple[bool, float | None]],
+    selections: list[tuple[str, bool, float | None]],
     *,
     initial_bankroll: float,
     base_stake: float,
 ) -> OddsStakingResult:
-    """Simulate the SPM draw progression using the odds available per match.
+    """Simulate independent draw progressions for each selected team.
 
-    A missing price skips the match without changing the progression. A
-    non-draw doubles the next stake; a draw resets it to the base stake.
-    Winnings are settled at decimal odds, so the returned stake is stake*odds.
+    ``selections`` contains ``(team, actual_draw, decimal_draw_odds)`` in
+    chronological order. A loss doubles the *same team's* next stake; a draw
+    resets only that team's progression. Missing prices skip the match without
+    changing that team's progression. This mirrors the SPM rule of continuing
+    the draw progression on the same team rather than carrying one global
+    martingale across unrelated teams.
     """
     if initial_bankroll < 0 or base_stake <= 0:
         raise ValueError("invalid bankroll or stake")
     bankroll = initial_bankroll
     peak = bankroll
     max_drawdown = 0.0
-    exposure = 0.0
     max_exposure = 0.0
-    stake = base_stake
+    stakes: dict[str, float] = {}
+    exposure_by_team: dict[str, float] = {}
     bets = wins = skipped = 0
 
-    for is_draw, odds in selections:
+    for team, is_draw, odds in selections:
         if odds is None:
             skipped += 1
             continue
         if odds <= 1.0:
             raise ValueError("odds must be greater than 1.0")
+        stake = stakes.get(team, base_stake)
         if stake > bankroll:
-            break
+            continue
         bankroll -= stake
-        exposure += stake
-        max_exposure = max(max_exposure, exposure)
+        exposure_by_team[team] = stake
+        max_exposure = max(max_exposure, sum(exposure_by_team.values()))
         bets += 1
         if is_draw:
             bankroll += stake * odds
             wins += 1
-            stake = base_stake
-            exposure = 0.0
+            stakes[team] = base_stake
+            exposure_by_team.pop(team, None)
         else:
-            stake *= 2.0
+            stakes[team] = stake * 2.0
         peak = max(peak, bankroll)
         max_drawdown = max(max_drawdown, peak - bankroll)
 
