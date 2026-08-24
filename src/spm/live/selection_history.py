@@ -20,11 +20,20 @@ class LiveSelection:
     oos_score: float | None
     combined_score: float
 
+    @property
+    def key(self) -> tuple[date, int, str, str, date]:
+        return (self.as_of, self.rank, self.home_team.strip(), self.away_team.strip(), self.fixture_date)
+
 def append_selections(path: str | Path, selections: Iterable[LiveSelection]) -> None:
+    """Append selections while remaining idempotent across repeated Live runs."""
     target = Path(path)
     target.parent.mkdir(parents=True, exist_ok=True)
     rows = tuple(selections)
     if not rows:
+        return
+    existing = {row.key for row in load_selections(path)}
+    new_rows = [row for row in rows if row.key not in existing]
+    if not new_rows:
         return
     fields = tuple(LiveSelection.__dataclass_fields__)
     exists = target.exists() and target.stat().st_size > 0
@@ -32,7 +41,7 @@ def append_selections(path: str | Path, selections: Iterable[LiveSelection]) -> 
         writer = csv.DictWriter(handle, fieldnames=fields)
         if not exists:
             writer.writeheader()
-        for row in rows:
+        for row in new_rows:
             writer.writerow({name: getattr(row, name) for name in fields})
 
 def load_selections(path: str | Path) -> tuple[LiveSelection, ...]:
