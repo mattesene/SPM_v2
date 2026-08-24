@@ -1,6 +1,6 @@
 from datetime import date
 
-from spm.live.web_live import render_live_dashboard
+from spm.web_live import render_live_dashboard
 
 
 def test_live_dashboard_empty_state():
