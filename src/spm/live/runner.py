@@ -7,6 +7,7 @@ from pathlib import Path
 from spm.backtest.oos_ranking import OOSRankingEntry
 from spm.data.repository import MatchRepository
 from spm.live.data_manifest import validate_live_inputs
+from spm.live.data_quality import assess_live_data
 from spm.live.report import build_upcoming_live_report
 
 
@@ -17,8 +18,9 @@ def run_live_from_database(
     as_of: date,
     output: str | Path,
     oos_path: str | Path | None = None,
+    max_match_age_days: int = 14,
 ) -> tuple:
-    """Load completed matches and future fixtures and build the report safely."""
+    """Load Live inputs, enforce quality gates, and build the report."""
     if oos_path is not None:
         validate_live_inputs(db_path, oos_path)
     else:
@@ -29,6 +31,16 @@ def run_live_from_database(
     repository = MatchRepository(db_path)
     matches = repository.load_matches(completed_only=True)
     fixtures = repository.load_fixtures(from_date=as_of)
+    quality = assess_live_data(
+        matches,
+        fixtures,
+        as_of=as_of,
+        max_match_age_days=max_match_age_days,
+    )
+    if not quality.ok:
+        details = "; ".join(quality.warnings) or "unknown data-quality failure"
+        raise RuntimeError(f"Live data quality gate failed: {details}")
+
     return build_upcoming_live_report(
         matches,
         fixtures,
