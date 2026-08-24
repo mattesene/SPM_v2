@@ -37,3 +37,4 @@ jobs:
           git add docs/index.html
           git diff --cached --quiet || git commit -m "chore: refresh live dashboard"
           git push
+      # Push to main intentionally triggers the next refresh cycle only when docs/index.html changes.
