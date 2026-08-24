@@ -8,8 +8,8 @@ from pathlib import Path
 from spm.data.default_historical_catalog import default_catalog
 from spm.data.historical_ingest import ingest_catalog
 from spm.data.repository import MatchRepository
-from spm.live.acquisition import acquire_fixtures
 from spm.live.config import build_fixture_provider
+from spm.live.pipeline import acquire_and_normalize
 
 
 def main() -> int:
@@ -32,11 +32,11 @@ def main() -> int:
             written += 1
 
     provider = build_fixture_provider()
-    acquisition = acquire_fixtures(provider, repository, from_date=date.today())
-    repository.mark_fixtures_refreshed()
+    acquisition = acquire_and_normalize(provider, repository, from_date=date.today())
     print(
         f"historical_records={written}, matches={repository.count()}, "
-        f"fixtures_seen={acquisition.fixtures_seen}, fixtures_written={acquisition.fixtures_written}"
+        f"fixtures_seen={acquisition.fetched}, fixtures_written={acquisition.written}, "
+        f"fixtures_rejected={acquisition.rejected}"
     )
     return 0
 
