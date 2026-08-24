@@ -28,7 +28,7 @@ def run_edge_staking(
     if min_edge < 0.0:
         raise ValueError("min_edge cannot be negative")
     rows = tuple(observations)
-    selections: list[tuple[bool, float | None]] = []
+    selections: list[tuple[str, bool, float | None]] = []
     priced = positive_edge = selected = 0
     for row in rows:
         if row.draw_odds is None:
@@ -38,7 +38,8 @@ def run_edge_staking(
         if edge >= min_edge:
             selected += 1
             positive_edge += int(edge > 0.0)
-            selections.append((row.actual_draw, row.draw_odds))
+            team = row.selected_team or row.home_team
+            selections.append((team, row.actual_draw, row.draw_odds))
     staking = simulate_draw_progression_with_odds(
         selections,
         initial_bankroll=initial_bankroll,
