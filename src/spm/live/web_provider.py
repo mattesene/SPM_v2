@@ -19,7 +19,7 @@ class JSONFixtureProvider:
         self.timeout = timeout
 
     def fetch_fixtures(self, from_date: date) -> list[RawFixture]:
-        request = Request(self.url, headers={"User-Agent": "SPM_v2/1.0"})
+        request = Request(self.url, headers={"User-Agent": "Mozilla/5.0", "Accept": "application/json"})
         try:
             with urlopen(request, timeout=self.timeout) as response:
                 payload = json.load(response)
@@ -49,7 +49,7 @@ class JSONFixtureProvider:
 class SofaScoreFixtureProvider:
     """Read upcoming fixtures from SofaScore's public scheduled-events API."""
 
-    BASE_URL = "https://www.sofascore.com/api/v1/sport/football/scheduled-events/{day}"
+    BASE_URL = "https://api.sofascore.com/api/v1/sport/football/scheduled-events/{day}"
     ALLOWED_TOURNAMENTS = {
         "Premier League",
         "Championship",
@@ -65,9 +65,15 @@ class SofaScoreFixtureProvider:
     def fetch_fixtures(self, from_date: date) -> list[RawFixture]:
         result: list[RawFixture] = []
         seen: set[tuple[date, str, str]] = set()
+        headers = {
+            "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/131.0 Safari/537.36",
+            "Accept": "application/json, text/plain, */*",
+            "Referer": "https://www.sofascore.com/",
+            "Origin": "https://www.sofascore.com",
+        }
         for offset in range(self.days):
             day = from_date + timedelta(days=offset)
-            request = Request(self.BASE_URL.format(day=day.isoformat()), headers={"User-Agent": "SPM_v2/1.0"})
+            request = Request(self.BASE_URL.format(day=day.isoformat()), headers=headers)
             try:
                 with urlopen(request, timeout=self.timeout) as response:
                     payload = json.load(response)
