@@ -14,7 +14,7 @@ permissions:
 jobs:
   refresh:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -22,13 +22,14 @@ jobs:
           python-version: "3.12"
           cache: pip
       - run: python -m pip install --upgrade pip
-      - run: pip install -e .
-      - name: Validate Live inputs
-        run: |
-          test -f data/live/spm.db
-          test -f data/live/oos.csv
-      - name: Refresh Live dashboard
-        run: python -m spm.cli --db data/live/spm.db --live --oos data/live/oos.csv --html docs/index.html
+      - run: pip install -e ".[test]"
+      - name: Bootstrap Live database and fixtures
+        env:
+          SPM_LIVE_PROVIDER: sofascore
+          SPM_LIVE_DAYS: "7"
+        run: python scripts/prepare_live_database.py --db data/live/spm.db --cache data/cache/historical
+      - name: Build Live dashboard
+        run: python -m spm.cli --db data/live/spm.db --live --html docs/index.html
       - name: Publish dashboard to main
         run: |
           git config user.name "github-actions[bot]"
