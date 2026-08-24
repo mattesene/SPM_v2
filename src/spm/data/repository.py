@@ -1,8 +1,9 @@
-"""SQLite persistence for normalized SPM records, provenance and match stats."""
+"""SQLite persistence for normalized SPM records, fixtures and statistics."""
 import sqlite3
 from datetime import date
 from pathlib import Path
 
+from .fixtures import Fixture
 from .models import Match
 from .normalized import MatchRecord
 from .stats import MatchStats
@@ -38,9 +39,15 @@ class MatchRepository:
                 possession_home REAL, possession_away REAL, corners_home INTEGER, corners_away INTEGER,
                 UNIQUE(match_id, source)
             )""")
+            db.execute("""CREATE TABLE IF NOT EXISTS fixtures (
+                id INTEGER PRIMARY KEY, date TEXT NOT NULL, home_team TEXT NOT NULL,
+                away_team TEXT NOT NULL, refreshed_at TEXT NOT NULL,
+                UNIQUE(date, home_team, away_team)
+            )""")
             db.execute("CREATE INDEX IF NOT EXISTS idx_matches_date ON matches(date)")
             db.execute("CREATE INDEX IF NOT EXISTS idx_provenance_match ON provenance(match_id)")
             db.execute("CREATE INDEX IF NOT EXISTS idx_stats_match ON match_stats(match_id)")
+            db.execute("CREATE INDEX IF NOT EXISTS idx_fixtures_date ON fixtures(date)")
 
     def _match_id(self, db: sqlite3.Connection, record: MatchRecord) -> int:
         row = db.execute(
@@ -91,6 +98,27 @@ class MatchRepository:
                  stats.shots_on_target_home, stats.shots_on_target_away, stats.possession_home,
                  stats.possession_away, stats.corners_home, stats.corners_away),
             )
+
+    def upsert_fixture(self, fixture: Fixture) -> None:
+        with self._connect() as db:
+            db.execute(
+                """INSERT INTO fixtures(date,home_team,away_team,refreshed_at)
+                VALUES(?,?,?,datetime('now')) ON CONFLICT(date,home_team,away_team)
+                DO UPDATE SET refreshed_at=excluded.refreshed_at""",
+                (fixture.date.isoformat(), fixture.home_team, fixture.away_team),
+            )
+
+    def mark_fixtures_refreshed(self) -> None:
+        with self._connect() as db:
+            db.execute("DELETE FROM fixtures WHERE date < date('now')")
+
+    def load_fixtures(self, *, from_date: date) -> list[Fixture]:
+        with self._connect() as db:
+            rows = db.execute(
+                "SELECT home_team, away_team, date FROM fixtures WHERE date>=? ORDER BY date, id",
+                (from_date.isoformat(),),
+            ).fetchall()
+        return [Fixture(row[0], row[1], date.fromisoformat(row[2])) for row in rows]
 
     def count(self) -> int:
         with self._connect() as db:
