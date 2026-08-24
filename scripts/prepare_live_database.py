@@ -10,6 +10,7 @@ from spm.data.historical_ingest import ingest_catalog
 from spm.data.repository import MatchRepository
 from spm.live.config import build_fixture_provider
 from spm.live.pipeline import acquire_and_normalize
+from spm.live.web_provider import FixtureProviderError
 
 
 def main() -> int:
@@ -32,7 +33,20 @@ def main() -> int:
             written += 1
 
     provider = build_fixture_provider()
-    acquisition = acquire_and_normalize(provider, repository, from_date=date.today())
+    try:
+        acquisition = acquire_and_normalize(provider, repository, from_date=date.today())
+    except FixtureProviderError as exc:
+        # A provider outage must not destroy the Live page.  Historical data
+        # has already been loaded and the existing DB remains usable by the
+        # Live scorer.  The workflow can retry on the next scheduled run.
+        print(f"WARNING: live fixture provider unavailable: {exc}")
+        print(
+            f"historical_records={written}, matches={repository.count()}, "
+            "fixtures_seen=0, fixtures_written=0, fixtures_rejected=0, "
+            "fixture_refresh=skipped"
+        )
+        return 0
+
     print(
         f"historical_records={written}, matches={repository.count()}, "
         f"fixtures_seen={acquisition.fetched}, fixtures_written={acquisition.written}, "
