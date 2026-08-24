@@ -12,6 +12,17 @@ from spm.backtest.oos_ranking import OOSRankingEntry
 from .scoring import score_fixtures
 
 
+def score_upcoming_fixtures(
+    matches: list[Match],
+    fixtures: Iterable[Fixture],
+    *,
+    as_of: date,
+    engine: SPMEngine | None = None,
+) -> tuple[SPMScore, ...]:
+    """Expose the canonical SPM scoring stage without applying Top-5 policy."""
+    return score_fixtures(matches, fixtures, as_of=as_of, engine=engine)
+
+
 def build_upcoming_top5(
     matches: list[Match],
     fixtures: Iterable[Fixture],
@@ -24,7 +35,7 @@ def build_upcoming_top5(
     oos_weight: float = 0.40,
 ) -> tuple:
     """Score upcoming fixtures and apply the canonical production Top-5 policy."""
-    scores: tuple[SPMScore, ...] = score_fixtures(matches, fixtures, as_of=as_of, engine=engine)
+    scores = score_upcoming_fixtures(matches, fixtures, as_of=as_of, engine=engine)
     return run_live_pipeline(
         scores,
         oos_entries,
