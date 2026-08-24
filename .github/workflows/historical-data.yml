@@ -3,7 +3,7 @@ name: historical-data
 on:
   push:
     branches:
-      - feat/odds-ingestion
+      - "**"
   pull_request:
     branches:
       - main
