@@ -28,8 +28,36 @@ jobs:
           SPM_LIVE_PROVIDER: sofascore
           SPM_LIVE_DAYS: "7"
         run: python scripts/prepare_live_database.py --db data/live/spm.db --cache data/cache/historical
+      - name: Locate OOS ranking
+        id: oos
+        shell: bash
+        run: |
+          set -euo pipefail
+          candidate=""
+          for path in data/live/oos_ranking.csv data/oos_ranking.csv data/rankings/oos_ranking.csv; do
+            if [ -s "$path" ]; then
+              candidate="$path"
+              break
+            fi
+          done
+          if [ -n "$candidate" ]; then
+            echo "path=$candidate" >> "$GITHUB_OUTPUT"
+            echo "OOS ranking found: $candidate"
+          else
+            echo "path=" >> "$GITHUB_OUTPUT"
+            echo "No OOS ranking file found; continuing in SPM-only mode."
+          fi
       - name: Build Live dashboard
-        run: python -m spm.cli --db data/live/spm.db --live --html docs/index.html
+        shell: bash
+        env:
+          OOS_PATH: ${{ steps.oos.outputs.path }}
+        run: |
+          set -euo pipefail
+          if [ -n "$OOS_PATH" ]; then
+            python -m spm.cli --db data/live/spm.db --live --oos "$OOS_PATH" --html docs/index.html
+          else
+            python -m spm.cli --db data/live/spm.db --live --html docs/index.html
+          fi
       - name: Publish dashboard to main
         run: |
           git config user.name "github-actions[bot]"
