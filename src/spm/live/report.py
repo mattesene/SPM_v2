@@ -24,18 +24,26 @@ def build_upcoming_live_report(
     min_bets: int = 20,
     min_profitable_window_rate: float = 0.50,
     oos_weight: float = 0.40,
-    live_status: str = "LIVE AGGIORNATO",
+    live_status: str | None = None,
 ) -> tuple:
     """Run the complete fixture-to-dashboard production flow."""
+    entries = tuple(oos_entries)
     candidates = build_upcoming_top5(
         matches,
         fixtures,
-        oos_entries,
+        entries,
         as_of=as_of,
         engine=engine,
         min_bets=min_bets,
         min_profitable_window_rate=min_profitable_window_rate,
         oos_weight=oos_weight,
     )
-    write_live_dashboard(candidates, as_of=as_of.isoformat(), path=path, live_status=live_status)
+    status = live_status or ("LIVE · SPM + OOS" if entries else "LIVE · SPM ONLY")
+    write_live_dashboard(
+        candidates,
+        as_of=as_of.isoformat(),
+        path=path,
+        live_status=status,
+        has_oos=bool(entries),
+    )
     return candidates
