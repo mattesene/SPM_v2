@@ -110,13 +110,15 @@ class SofaScoreFixtureProvider:
 
 
 class _DirettaHTMLParser(HTMLParser):
-    """Extract the stable participant/time classes used by Diretta.it."""
+    """Extract participant/time blocks while allowing nested HTML elements."""
 
     def __init__(self, from_date: date) -> None:
         super().__init__(convert_charrefs=True)
         self.from_date = from_date
-        self.current_class = ""
-        self.buffer = ""
+        self.current_class: str | None = None
+        self.current_tag: str | None = None
+        self.depth = 0
+        self.buffer: list[str] = []
         self.home = ""
         self.away = ""
         self.time_text = ""
@@ -124,41 +126,58 @@ class _DirettaHTMLParser(HTMLParser):
 
     def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
         classes = dict(attrs).get("class") or ""
+        if self.current_class is not None:
+            self.depth += 1
+            return
         if "event__participant--home" in classes:
-            self.current_class = "home"
-            self.buffer = ""
+            self.current_class, self.current_tag, self.depth = "home", tag, 0
+            self.buffer = []
         elif "event__participant--away" in classes:
-            self.current_class = "away"
-            self.buffer = ""
+            self.current_class, self.current_tag, self.depth = "away", tag, 0
+            self.buffer = []
         elif "event__time" in classes:
-            self.current_class = "time"
-            self.buffer = ""
+            self.current_class, self.current_tag, self.depth = "time", tag, 0
+            self.buffer = []
 
     def handle_data(self, data: str) -> None:
-        if self.current_class:
-            self.buffer += data
+        if self.current_class is not None:
+            self.buffer.append(data)
 
     def handle_endtag(self, tag: str) -> None:
-        if not self.current_class:
+        if self.current_class is None:
             return
-        value = " ".join(self.buffer.split())
+        if self.depth > 0:
+            self.depth -= 1
+            return
+        if tag != self.current_tag:
+            return
+
+        value = " ".join("".join(self.buffer).split())
         if self.current_class == "home":
             self.home = value
         elif self.current_class == "away":
             self.away = value
         elif self.current_class == "time":
             self.time_text = value
-        self.current_class = ""
-        self.buffer = ""
-        if self.home and self.away and self.time_text:
-            match = re.search(r"(?P<day>\d{1,2})\.(?P<month>\d{1,2})\.?", self.time_text)
-            if match:
+
+        self.current_class = self.current_tag = None
+        self.buffer = []
+        self._try_emit()
+
+    def _try_emit(self) -> None:
+        if not (self.home and self.away and self.time_text):
+            return
+        match = re.search(r"(?P<day>\d{1,2})\s*[./-]\s*(?P<month>\d{1,2})", self.time_text)
+        if match:
+            try:
                 kickoff = date(self.from_date.year, int(match.group("month")), int(match.group("day")))
-            else:
+            except ValueError:
                 kickoff = self.from_date
-            if kickoff >= self.from_date:
-                self.fixtures.append(RawFixture(self.home, self.away, kickoff))
-            self.home = self.away = self.time_text = ""
+        else:
+            kickoff = self.from_date
+        if kickoff >= self.from_date:
+            self.fixtures.append(RawFixture(self.home, self.away, kickoff))
+        self.home = self.away = self.time_text = ""
 
 
 class DirettaFixtureProvider:
