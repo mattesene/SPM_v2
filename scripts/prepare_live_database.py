@@ -36,9 +36,6 @@ def main() -> int:
     try:
         acquisition = acquire_and_normalize(provider, repository, from_date=date.today())
     except FixtureProviderError as exc:
-        # A provider outage must not destroy the Live page.  Historical data
-        # has already been loaded and the existing DB remains usable by the
-        # Live scorer.  The workflow can retry on the next scheduled run.
         print(f"WARNING: live fixture provider unavailable: {exc}")
         print(
             f"historical_records={written}, matches={repository.count()}, "
