@@ -15,7 +15,7 @@ class FixtureQuality:
 
 def quality_gate(fixtures: list[Fixture]) -> FixtureQuality:
     accepted: list[Fixture] = []
-    seen: set[tuple[str, str, object, str | None]] = set()
+    seen: set[tuple[str, str, object]] = set()
     rejected = 0
     duplicates = 0
     for fixture in fixtures:
@@ -24,8 +24,8 @@ def quality_gate(fixtures: list[Fixture]) -> FixtureQuality:
         if not home or not away or home.casefold() == away.casefold():
             rejected += 1
             continue
-        normalized = Fixture(fixture.date, home, away, fixture.competition)
-        key = (normalized.home_team.casefold(), normalized.away_team.casefold(), normalized.date, normalized.competition)
+        normalized = Fixture(home, away, fixture.date)
+        key = (normalized.home_team.casefold(), normalized.away_team.casefold(), normalized.date)
         if key in seen:
             duplicates += 1
             continue
