@@ -2,7 +2,9 @@
 from __future__ import annotations
 
 import json
+import re
 from datetime import date, datetime, timedelta, timezone
+from html.parser import HTMLParser
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
@@ -105,3 +107,128 @@ class SofaScoreFixtureProvider:
                     seen.add(key)
                     result.append(RawFixture(home, away, kickoff))
         return result
+
+
+class _DirettaHTMLParser(HTMLParser):
+    """Extract the stable participant/time classes used by Diretta.it."""
+
+    def __init__(self, from_date: date) -> None:
+        super().__init__(convert_charrefs=True)
+        self.from_date = from_date
+        self.current_class = ""
+        self.buffer = ""
+        self.home = ""
+        self.away = ""
+        self.time_text = ""
+        self.fixtures: list[RawFixture] = []
+
+    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        classes = dict(attrs).get("class") or ""
+        if "event__participant--home" in classes:
+            self.current_class = "home"
+            self.buffer = ""
+        elif "event__participant--away" in classes:
+            self.current_class = "away"
+            self.buffer = ""
+        elif "event__time" in classes:
+            self.current_class = "time"
+            self.buffer = ""
+
+    def handle_data(self, data: str) -> None:
+        if self.current_class:
+            self.buffer += data
+
+    def handle_endtag(self, tag: str) -> None:
+        if not self.current_class:
+            return
+        value = " ".join(self.buffer.split())
+        if self.current_class == "home":
+            self.home = value
+        elif self.current_class == "away":
+            self.away = value
+        elif self.current_class == "time":
+            self.time_text = value
+        self.current_class = ""
+        self.buffer = ""
+        if self.home and self.away and self.time_text:
+            match = re.search(r"(?P<day>\d{1,2})\.(?P<month>\d{1,2})\.?", self.time_text)
+            if match:
+                kickoff = date(self.from_date.year, int(match.group("month")), int(match.group("day")))
+            else:
+                kickoff = self.from_date
+            if kickoff >= self.from_date:
+                self.fixtures.append(RawFixture(self.home, self.away, kickoff))
+            self.home = self.away = self.time_text = ""
+
+
+class DirettaFixtureProvider:
+    """Read upcoming fixtures from Diretta.it calendar pages as a fallback."""
+
+    CALENDAR_URLS = (
+        "https://www.diretta.it/serie-a/La/news/calendario/",
+        "https://www.diretta.it/calcio/inghilterra/premier-league/calendario/",
+        "https://www.diretta.it/calcio/inghilterra/championship/calendario/",
+        "https://www.diretta.it/calcio/germania/bundesliga/calendario/",
+        "https://www.diretta.it/calcio/spagna/laliga/calendario/",
+    )
+
+    def __init__(self, *, days: int = 7, timeout: int = 20) -> None:
+        self.days = max(1, days)
+        self.timeout = timeout
+
+    def fetch_fixtures(self, from_date: date) -> list[RawFixture]:
+        headers = {
+            "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/131.0 Safari/537.36",
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+            "Accept-Language": "it-IT,it;q=0.9,en;q=0.8",
+        }
+        result: list[RawFixture] = []
+        seen: set[tuple[date, str, str]] = set()
+        latest = from_date + timedelta(days=self.days - 1)
+        for url in self.CALENDAR_URLS:
+            request = Request(url, headers=headers)
+            try:
+                with urlopen(request, timeout=self.timeout) as response:
+                    html = response.read().decode("utf-8", errors="replace")
+            except HTTPError as exc:
+                raise FixtureProviderError(f"Diretta.it HTTP {exc.code}") from exc
+            except URLError as exc:
+                raise FixtureProviderError(f"Diretta.it unavailable: {exc.reason}") from exc
+            except TimeoutError as exc:
+                raise FixtureProviderError("Diretta.it timeout") from exc
+
+            parser = _DirettaHTMLParser(from_date)
+            parser.feed(html)
+            for fixture in parser.fixtures:
+                if from_date <= fixture.kickoff <= latest:
+                    key = (fixture.kickoff, fixture.home, fixture.away)
+                    if key not in seen:
+                        seen.add(key)
+                        result.append(fixture)
+        if not result:
+            raise FixtureProviderError("Diretta.it returned no usable upcoming fixtures")
+        return result
+
+
+class FallbackFixtureProvider:
+    """Try the primary provider and fall back to a secondary source."""
+
+    def __init__(self, primary, fallback) -> None:
+        self.primary = primary
+        self.fallback = fallback
+
+    def fetch_fixtures(self, from_date: date) -> list[RawFixture]:
+        try:
+            result = self.primary.fetch_fixtures(from_date)
+            if result:
+                return result
+        except FixtureProviderError as exc:
+            print(f"WARNING: primary Live provider failed: {exc}")
+        try:
+            result = self.fallback.fetch_fixtures(from_date)
+            if result:
+                print(f"Live fixture fallback: {len(result)} fixtures from Diretta.it")
+                return result
+        except FixtureProviderError as exc:
+            raise FixtureProviderError(f"primary and fallback providers failed: {exc}") from exc
+        raise FixtureProviderError("primary and fallback providers returned no fixtures")
