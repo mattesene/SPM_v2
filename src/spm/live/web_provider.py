@@ -1,206 +1,97 @@
 """HTTP provider adapters for public fixture endpoints."""
 from __future__ import annotations
-
-import json
-import re
-from datetime import date, datetime, timedelta, timezone
+import json,re
+from datetime import date,datetime,timedelta,timezone
+from html import unescape
 from html.parser import HTMLParser
-from urllib.error import HTTPError, URLError
-from urllib.request import Request, urlopen
-
+from urllib.error import HTTPError,URLError
+from urllib.request import Request,urlopen
 from spm.live.normalization import RawFixture
 
-
-class FixtureProviderError(RuntimeError):
-    """A recoverable upstream fixture-source error."""
-
-
+class FixtureProviderError(RuntimeError): pass
 class JSONFixtureProvider:
-    def __init__(self, url: str, *, timeout: int = 20) -> None:
-        self.url = url
-        self.timeout = timeout
-
-    def fetch_fixtures(self, from_date: date) -> list[RawFixture]:
-        request = Request(self.url, headers={"User-Agent": "Mozilla/5.0", "Accept": "application/json"})
-        try:
-            with urlopen(request, timeout=self.timeout) as response:
-                payload = json.load(response)
-        except HTTPError as exc:
-            raise FixtureProviderError(f"HTTP {exc.code} from fixture source") from exc
-        except URLError as exc:
-            raise FixtureProviderError(f"fixture source unavailable: {exc.reason}") from exc
-        except TimeoutError as exc:
-            raise FixtureProviderError("fixture source timeout") from exc
-        except (json.JSONDecodeError, UnicodeDecodeError) as exc:
-            raise FixtureProviderError("fixture source returned invalid JSON") from exc
-        rows = payload.get("fixtures", payload) if isinstance(payload, dict) else payload
-        if not isinstance(rows, list):
-            raise FixtureProviderError("fixture source returned an invalid payload")
-        result: list[RawFixture] = []
-        try:
-            for row in rows:
-                kickoff = date.fromisoformat(row["kickoff"])
-                if kickoff >= from_date:
-                    result.append(RawFixture(row["home"], row["away"], kickoff))
-        except (KeyError, TypeError, ValueError) as exc:
-            raise FixtureProviderError("fixture source contains an invalid row") from exc
-        return result
-
+ def __init__(self,url,*,timeout=20): self.url,self.timeout=url,timeout
+ def fetch_fixtures(self,from_date):
+  try:
+   with urlopen(Request(self.url,headers={"User-Agent":"Mozilla/5.0","Accept":"application/json"}),timeout=self.timeout) as r:p=json.load(r)
+  except HTTPError as e: raise FixtureProviderError(f"HTTP {e.code} from fixture source") from e
+  except URLError as e: raise FixtureProviderError(f"fixture source unavailable: {e.reason}") from e
+  rows=p.get("fixtures",p) if isinstance(p,dict) else p
+  if not isinstance(rows,list): raise FixtureProviderError("fixture source returned an invalid payload")
+  try:return [RawFixture(x["home"],x["away"],date.fromisoformat(x["kickoff"])) for x in rows if date.fromisoformat(x["kickoff"])>=from_date]
+  except (KeyError,TypeError,ValueError) as e: raise FixtureProviderError("fixture source contains an invalid row") from e
 
 class SofaScoreFixtureProvider:
-    BASE_URL = "https://api.sofascore.com/api/v1/sport/football/scheduled-events/{day}"
-    ALLOWED_TOURNAMENTS = {"Premier League", "Championship", "Bundesliga", "Serie A", "LaLiga"}
-    def __init__(self, *, days: int = 7, timeout: int = 20) -> None:
-        self.days = max(1, days)
-        self.timeout = timeout
-    def fetch_fixtures(self, from_date: date) -> list[RawFixture]:
-        result: list[RawFixture] = []
-        seen: set[tuple[date, str, str]] = set()
-        headers = {"User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/131.0 Safari/537.36", "Accept": "application/json, text/plain, */*", "Referer": "https://www.sofascore.com/", "Origin": "https://www.sofascore.com"}
-        for offset in range(self.days):
-            day = from_date + timedelta(days=offset)
-            request = Request(self.BASE_URL.format(day=day.isoformat()), headers=headers)
-            try:
-                with urlopen(request, timeout=self.timeout) as response:
-                    payload = json.load(response)
-            except HTTPError as exc:
-                raise FixtureProviderError(f"SofaScore HTTP {exc.code} for {day}") from exc
-            except URLError as exc:
-                raise FixtureProviderError(f"SofaScore unavailable for {day}: {exc.reason}") from exc
-            except (json.JSONDecodeError, UnicodeDecodeError) as exc:
-                raise FixtureProviderError(f"SofaScore returned invalid JSON for {day}") from exc
-            for event in payload.get("events", []):
-                status = (event.get("status") or {}).get("type")
-                if status not in {None, "notstarted"}:
-                    continue
-                tournament = ((event.get("tournament") or {}).get("name") or "").strip()
-                unique = ((event.get("tournament") or {}).get("uniqueTournament") or {}).get("name", "")
-                if tournament not in self.ALLOWED_TOURNAMENTS and unique not in self.ALLOWED_TOURNAMENTS:
-                    continue
-                home = ((event.get("homeTeam") or {}).get("name") or "").strip()
-                away = ((event.get("awayTeam") or {}).get("name") or "").strip()
-                if not home or not away:
-                    continue
-                timestamp = event.get("startTimestamp")
-                kickoff = datetime.fromtimestamp(int(timestamp), tz=timezone.utc).date() if timestamp else day
-                key = (kickoff, home, away)
-                if kickoff >= from_date and key not in seen:
-                    seen.add(key)
-                    result.append(RawFixture(home, away, kickoff))
-        return result
+ BASE_URL="https://api.sofascore.com/api/v1/sport/football/scheduled-events/{day}"
+ ALLOWED_TOURNAMENTS={"Premier League","Championship","Bundesliga","Serie A","LaLiga"}
+ def __init__(self,*,days=7,timeout=20): self.days=max(1,days);self.timeout=timeout
+ def fetch_fixtures(self,from_date):
+  out=[];seen=set();h={"User-Agent":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/131.0 Safari/537.36","Accept":"application/json, text/plain, */*","Referer":"https://www.sofascore.com/","Origin":"https://www.sofascore.com"}
+  for i in range(self.days):
+   d=from_date+timedelta(days=i)
+   try:
+    with urlopen(Request(self.BASE_URL.format(day=d.isoformat()),headers=h),timeout=self.timeout) as r:p=json.load(r)
+   except HTTPError as e: raise FixtureProviderError(f"SofaScore HTTP {e.code} for {d}") from e
+   except URLError as e: raise FixtureProviderError(f"SofaScore unavailable for {d}: {e.reason}") from e
+   for e in p.get("events",[]):
+    if (e.get("status") or {}).get("type") not in {None,"notstarted"}:continue
+    t=((e.get("tournament") or {}).get("name") or "").strip();u=((e.get("tournament") or {}).get("uniqueTournament") or {}).get("name","")
+    if t not in self.ALLOWED_TOURNAMENTS and u not in self.ALLOWED_TOURNAMENTS:continue
+    a=((e.get("homeTeam") or {}).get("name") or "").strip();b=((e.get("awayTeam") or {}).get("name") or "").strip()
+    if not a or not b:continue
+    ts=e.get("startTimestamp");k=datetime.fromtimestamp(int(ts),tz=timezone.utc).date() if ts else d;key=(k,a,b)
+    if k>=from_date and key not in seen:seen.add(key);out.append(RawFixture(a,b,k))
+  return out
 
+class _VisibleTextParser(HTMLParser):
+ def __init__(self):super().__init__(convert_charrefs=True);self.parts=[];self.skip=0
+ def handle_starttag(self,t,a):
+  if t.lower() in {"script","style","noscript"}:self.skip+=1
+ def handle_endtag(self,t):
+  if t.lower() in {"script","style","noscript"} and self.skip:self.skip-=1
+ def handle_data(self,d):
+  if not self.skip:
+   x=" ".join(unescape(d).split())
+   if x:self.parts.append(x)
+ def text(self):return " ".join(self.parts)
 
-class _DirettaHTMLParser(HTMLParser):
-    """Extract fixture rows while tolerating nested markup and modern date labels."""
-    def __init__(self, from_date: date) -> None:
-        super().__init__(convert_charrefs=True)
-        self.from_date = from_date
-        self.current_class: str | None = None
-        self.current_tag: str | None = None
-        self.depth = 0
-        self.buffer: list[str] = []
-        self.home = self.away = self.time_text = ""
-        self.fixtures: list[RawFixture] = []
-    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
-        classes = dict(attrs).get("class") or ""
-        if self.current_class is not None:
-            self.depth += 1
-            return
-        for kind, marker in (("home", "event__participant--home"), ("away", "event__participant--away"), ("time", "event__time")):
-            if marker in classes:
-                self.current_class, self.current_tag, self.depth = kind, tag, 0
-                self.buffer = []
-                return
-    def handle_data(self, data: str) -> None:
-        if self.current_class is not None:
-            self.buffer.append(data)
-    def handle_endtag(self, tag: str) -> None:
-        if self.current_class is None:
-            return
-        if self.depth > 0:
-            self.depth -= 1
-            return
-        if tag != self.current_tag:
-            return
-        value = " ".join("".join(self.buffer).split())
-        if self.current_class == "home": self.home = value
-        elif self.current_class == "away": self.away = value
-        else: self.time_text = value
-        self.current_class = self.current_tag = None
-        self.buffer = []
-        self._try_emit()
-    def _try_emit(self) -> None:
-        if not (self.home and self.away and self.time_text):
-            return
-        match = re.search(r"(?P<day>\d{1,2})\s*[./-]\s*(?P<month>\d{1,2})", self.time_text)
-        if match:
-            try: kickoff = date(self.from_date.year, int(match.group("month")), int(match.group("day")))
-            except ValueError: kickoff = self.from_date
-        else: kickoff = self.from_date
-        if kickoff >= self.from_date:
-            self.fixtures.append(RawFixture(self.home, self.away, kickoff))
-        self.home = self.away = self.time_text = ""
-
+def _parse_diretta_text(text,from_date,latest):
+ pat=re.compile(r"(\d{1,2})\s*/\s*(\d{1,2})\s+([A-Za-zÀ-ÖØ-öø-ÿ0-9.'’&()\- ]{2,80}?)\s+[-–—]\s+([A-Za-zÀ-ÖØ-öø-ÿ0-9.'’&()\- ]{2,80}?)(?=\s*,\s*\d{1,2}\s*/\s*\d{1,2}|\s*$)")
+ out=[]
+ for m in pat.finditer(text):
+  try:k=date(from_date.year,int(m.group(2)),int(m.group(1)))
+  except ValueError:continue
+  if from_date<=k<=latest:
+   a=" ".join(m.group(3).split()).strip(" ,");b=" ".join(m.group(4).split()).strip(" ,")
+   if a and b and a.lower()!=b.lower():out.append(RawFixture(a,b,k))
+ return out
 
 class DirettaFixtureProvider:
-    """Read upcoming fixtures from Diretta.it calendar pages as a fallback."""
-    CALENDAR_URLS = (
-        "https://www.diretta.it/serie-a/La/news/calendario/",
-        "https://www.diretta.it/calcio/inghilterra/premier-league/calendario/",
-        "https://www.diretta.it/calcio/inghilterra/championship/calendario/",
-        "https://www.diretta.it/calcio/germania/bundesliga/calendario/",
-        "https://www.diretta.it/calcio/spagna/laliga/calendario/",
-    )
-    def __init__(self, *, days: int = 7, timeout: int = 20) -> None:
-        self.days = max(1, days)
-        self.timeout = timeout
-    def fetch_fixtures(self, from_date: date) -> list[RawFixture]:
-        headers = {"User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/131.0 Safari/537.36", "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8", "Accept-Language": "it-IT,it;q=0.9,en;q=0.8"}
-        result: list[RawFixture] = []
-        seen: set[tuple[date, str, str]] = set()
-        latest = from_date + timedelta(days=self.days - 1)
-        for url in self.CALENDAR_URLS:
-            request = Request(url, headers=headers)
-            try:
-                with urlopen(request, timeout=self.timeout) as response:
-                    status = getattr(response, "status", 200)
-                    content_type = response.headers.get("Content-Type", "")
-                    html = response.read().decode("utf-8", errors="replace")
-            except HTTPError as exc:
-                raise FixtureProviderError(f"Diretta.it HTTP {exc.code}") from exc
-            except URLError as exc:
-                raise FixtureProviderError(f"Diretta.it unavailable: {exc.reason}") from exc
-            except TimeoutError as exc:
-                raise FixtureProviderError("Diretta.it timeout") from exc
-            print(f"Diretta.it: status={status}, content_type={content_type}, bytes={len(html)}, participant_markers={html.count('event__participant')}, time_markers={html.count('event__time')}")
-            parser = _DirettaHTMLParser(from_date)
-            parser.feed(html)
-            for fixture in parser.fixtures:
-                if from_date <= fixture.kickoff <= latest:
-                    key = (fixture.kickoff, fixture.home, fixture.away)
-                    if key not in seen:
-                        seen.add(key)
-                        result.append(fixture)
-        if not result:
-            raise FixtureProviderError("Diretta.it returned no usable upcoming fixtures")
-        return result
-
+ CALENDAR_URLS=("https://www.diretta.it/serie-a/La/news/calendario/","https://www.diretta.it/calcio/inghilterra/premier-league/calendario/","https://www.diretta.it/calcio/inghilterra/championship/calendario/","https://www.diretta.it/calcio/germania/bundesliga/calendario/","https://www.diretta.it/calcio/spagna/laliga/calendario/")
+ def __init__(self,*,days=7,timeout=20):self.days=max(1,days);self.timeout=timeout
+ def fetch_fixtures(self,from_date):
+  h={"User-Agent":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/131.0 Safari/537.36","Accept":"text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8","Accept-Language":"it-IT,it;q=0.9,en;q=0.8"};out=[];seen=set();latest=from_date+timedelta(days=self.days-1)
+  for url in self.CALENDAR_URLS:
+   try:
+    with urlopen(Request(url,headers=h),timeout=self.timeout) as r:status=getattr(r,"status",200);ct=r.headers.get("Content-Type","");html=r.read().decode("utf-8",errors="replace")
+   except HTTPError as e:raise FixtureProviderError(f"Diretta.it HTTP {e.code}") from e
+   except URLError as e:raise FixtureProviderError(f"Diretta.it unavailable: {e.reason}") from e
+   textp=_VisibleTextParser();textp.feed(html);text=textp.text();n=len(re.findall(r"\b\d{1,2}\s*/\s*\d{1,2}\b",text));print(f"Diretta.it: status={status}, content_type={ct}, bytes={len(html)}, visible_chars={len(text)}, calendar_patterns={n}")
+   for f in _parse_diretta_text(text,from_date,latest):
+    key=(f.kickoff,f.home,f.away)
+    if key not in seen:seen.add(key);out.append(f)
+  if not out:raise FixtureProviderError("Diretta.it returned no usable upcoming fixtures")
+  return out
 
 class FallbackFixtureProvider:
-    def __init__(self, primary, fallback) -> None:
-        self.primary = primary
-        self.fallback = fallback
-    def fetch_fixtures(self, from_date: date) -> list[RawFixture]:
-        try:
-            result = self.primary.fetch_fixtures(from_date)
-            if result: return result
-        except FixtureProviderError as exc:
-            print(f"WARNING: primary Live provider failed: {exc}")
-        try:
-            result = self.fallback.fetch_fixtures(from_date)
-            if result:
-                print(f"Live fixture fallback: {len(result)} fixtures from Diretta.it")
-                return result
-        except FixtureProviderError as exc:
-            raise FixtureProviderError(f"primary and fallback providers failed: {exc}") from exc
-        raise FixtureProviderError("primary and fallback providers returned no fixtures")
+ def __init__(self,primary,fallback):self.primary,self.fallback=primary,fallback
+ def fetch_fixtures(self,from_date):
+  try:
+   r=self.primary.fetch_fixtures(from_date)
+   if r:return r
+  except FixtureProviderError as e:print(f"WARNING: primary Live provider failed: {e}")
+  try:
+   r=self.fallback.fetch_fixtures(from_date)
+   if r:print(f"Live fixture fallback: {len(r)} fixtures from Diretta.it");return r
+  except FixtureProviderError as e:raise FixtureProviderError(f"primary and fallback providers failed: {e}") from e
+  raise FixtureProviderError("primary and fallback providers returned no fixtures")
