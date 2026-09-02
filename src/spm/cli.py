@@ -60,3 +60,7 @@ def main() -> int:
         write_dashboard(ranked, as_of=args.as_of, path=args.html)
         print(f"html_report,{args.html}")
     return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
