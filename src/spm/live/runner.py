@@ -31,6 +31,11 @@ def run_live_from_database(
     repository = MatchRepository(db_path)
     matches = repository.load_matches(completed_only=True)
     fixtures = repository.load_fixtures(from_date=as_of)
+    print(
+        "live_inputs,"
+        f"as_of={as_of.isoformat()},matches={len(matches)},fixtures={len(fixtures)},"
+        f"fixture_dates={[fixture.date.isoformat() for fixture in fixtures]}"
+    )
     quality = assess_live_data(
         matches,
         fixtures,
@@ -41,10 +46,12 @@ def run_live_from_database(
         details = "; ".join(quality.warnings) or "unknown data-quality failure"
         raise RuntimeError(f"Live data quality gate failed: {details}")
 
-    return build_upcoming_live_report(
+    candidates = build_upcoming_live_report(
         matches,
         fixtures,
         oos_entries,
         as_of=as_of,
         path=output,
     )
+    print(f"live_output,candidates={len(candidates)},output={output}")
+    return candidates
