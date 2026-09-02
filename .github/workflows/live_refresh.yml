@@ -60,11 +60,16 @@ jobs:
           else
             python -m spm.cli --db data/live/spm.db --live --html docs/index.html
           fi
+          test -s docs/index.html
+          echo "Generated dashboard: $(wc -c < docs/index.html) bytes"
+          echo "Live picks in dashboard: $(grep -o 'LIVE PICK' docs/index.html | wc -l)"
+          grep -q 'LIVE PICK' docs/index.html
       - name: Publish dashboard to main
         run: |
+          set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add docs/index.html
-          git diff --cached --quiet || git commit -m "chore: refresh live dashboard"
+          git add -f docs/index.html
+          git diff --cached --quiet && echo "Dashboard unchanged" || git commit -m "chore: refresh live dashboard"
           git push
       # docs/index.html is ignored by the push trigger above, preventing a refresh loop.
