@@ -36,6 +36,10 @@ def run_live_from_database(
         f"as_of={as_of.isoformat()},matches={len(matches)},fixtures={len(fixtures)},"
         f"fixture_dates={[fixture.date.isoformat() for fixture in fixtures]}"
     )
+    print(
+        "live_fixture_rows="
+        + repr([(fixture.home_team, fixture.away_team, fixture.date.isoformat()) for fixture in fixtures])
+    )
     quality = assess_live_data(
         matches,
         fixtures,
