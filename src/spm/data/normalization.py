@@ -24,6 +24,11 @@ TEAM_ALIASES = (
     TeamAlias("milan", ("milan", "ac milan", "milan ac")),
     TeamAlias("roma", ("roma", "as roma", "roma fc")),
     TeamAlias("lazio", ("lazio", "ss lazio")),
+    TeamAlias("sociedad", ("sociedad", "real sociedad")),
+    TeamAlias("celta", ("celta", "celta vigo")),
+    TeamAlias("stuttgart", ("stuttgart", "stoccarda")),
+    TeamAlias("koeln", ("koeln", "koln", "kolonia", "fc koln", "fc kolonia")),
+    TeamAlias("betis", ("betis", "real betis")),
 )
 
 
