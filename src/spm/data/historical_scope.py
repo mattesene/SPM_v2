@@ -14,6 +14,16 @@ class HistoricalScope:
     root: Path
 
     @property
+    def start_season(self) -> str:
+        """First season represented by the catalog."""
+        return min(source.season for source in self.catalog.sources)
+
+    @property
+    def end_season(self) -> str:
+        """Last season represented by the catalog."""
+        return max(source.season for source in self.catalog.sources)
+
+    @property
     def expected_files(self) -> tuple[Path, ...]:
         return tuple(
             self.root / source.competition / source.season / source.filename
