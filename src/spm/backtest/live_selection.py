@@ -17,6 +17,10 @@ class LiveCandidate:
     oos_score: float
     bets: int
     profitable_window_rate: float
+    selected_team: str = ""
+    team_probability: float = 0.0
+    team_streak: int = 0
+    streak_draw_rate: float = 0.0
 
 
 def _oos_for_fixture(home: str, away: str, entries: dict[str, OOSRankingEntry]) -> OOSRankingEntry | None:
@@ -35,12 +39,7 @@ def run_live_pipeline(
     min_profitable_window_rate: float = 0.50,
     oos_weight: float = 0.40,
 ) -> tuple[LiveCandidate, ...]:
-    """Return the production Top-5 candidates.
-
-    When OOS data exists, reliability filters are enforced. When no OOS file is
-    available yet, candidates are retained using the SPM score alone rather than
-    publishing an empty dashboard.
-    """
+    """Return the production Top-5 team selections, not merely top fixtures."""
     if not 0 <= oos_weight <= 1:
         raise ValueError("oos_weight must be between 0 and 1")
     oos = {entry.key: entry for entry in oos_entries}
@@ -72,6 +71,10 @@ def run_live_pipeline(
                 oos_score=oos_score,
                 bets=bets,
                 profitable_window_rate=rate,
+                selected_team=score.selected_team,
+                team_probability=score.team_probability,
+                team_streak=score.selected_team_streak,
+                streak_draw_rate=score.selected_team_streak_draw_rate,
             )
         )
-    return tuple(sorted(candidates, key=lambda item: (-item.combined_score, item.fixture)))[:5]
+    return tuple(sorted(candidates, key=lambda item: (-item.team_probability, -item.combined_score, -item.team_streak, item.selected_team)))[:5]
