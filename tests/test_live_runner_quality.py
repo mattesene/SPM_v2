@@ -25,7 +25,7 @@ def test_runner_does_not_create_output_when_quality_fails(tmp_path):
     db = tmp_path / "live.db"
     repo = MatchRepository(db)
     as_of = date(2026, 8, 24)
-    repo.upsert(Fixture("A", "A", as_of))
+    repo.upsert_fixture(Fixture("A", "A", as_of))
     from spm.data.normalized import MatchRecord
     repo.upsert(MatchRecord(as_of - timedelta(days=30), "C", "D", 1, 0))
     output = tmp_path / "index.html"
