@@ -24,8 +24,20 @@ class DataQualityReport:
         return not self.duplicate_matches and not self.duplicate_fixtures and not self.invalid_fixtures and not self.stale_match_data
 
 
-def assess_live_data(matches: Iterable[Match], fixtures: Iterable[Fixture], *, as_of: date, max_match_age_days: int = 14) -> DataQualityReport:
-    """Assess persisted Live inputs without modifying them."""
+def assess_live_data(
+    matches: Iterable[Match],
+    fixtures: Iterable[Fixture],
+    *,
+    as_of: date,
+    max_match_age_days: int | None = 14,
+) -> DataQualityReport:
+    """Assess persisted Live inputs without modifying them.
+
+    ``max_match_age_days`` is optional because the production Live pipeline
+    normally combines current fixtures with a deliberately static historical
+    training set.  A caller that requires recency can still enable the stale
+    data gate explicitly.
+    """
     match_rows = tuple(matches)
     fixture_rows = tuple(fixtures)
     match_keys = [(m.date, m.home_team.strip(), m.away_team.strip()) for m in match_rows]
@@ -34,7 +46,10 @@ def assess_live_data(matches: Iterable[Match], fixtures: Iterable[Fixture], *, a
     duplicate_fixtures = len(fixture_keys) - len(set(fixture_keys))
     invalid_fixtures = sum(1 for f in fixture_rows if f.home_team.strip() == f.away_team.strip())
     latest_match = max((m.date for m in match_rows), default=None)
-    stale = latest_match is None or latest_match < as_of - timedelta(days=max_match_age_days)
+    stale = (
+        max_match_age_days is not None
+        and (latest_match is None or latest_match < as_of - timedelta(days=max_match_age_days))
+    )
     warnings: list[str] = []
     if duplicate_matches:
         warnings.append(f"duplicate completed matches: {duplicate_matches}")
