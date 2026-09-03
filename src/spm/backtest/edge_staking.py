@@ -32,7 +32,7 @@ def run_edge_staking(observations: Iterable[MarketBacktestObservation], *, min_e
         if edge >= min_edge:
             selected += 1
             positive_edge += int(edge > 0.0)
-            team = getattr(row, "selected_team", None) or row.home_team
+            team = getattr(row, "selected_team", None) or getattr(row, "home_team", None) or "__edge_selection__"
             selections.append((team, row.actual_draw, row.draw_odds))
     staking = simulate_draw_progression_with_odds(selections, initial_bankroll=initial_bankroll, base_stake=base_stake)
     return EdgeStakingResult(len(rows), priced, selected, positive_edge, staking)
