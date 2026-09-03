@@ -4,7 +4,6 @@ from __future__ import annotations
 import argparse
 import json
 from collections import defaultdict
-from dataclasses import asdict
 from pathlib import Path
 
 from spm.backtest.team_progression import run_team_progression_backtest
@@ -14,7 +13,6 @@ from spm.data.historical_scope import default_historical_scope
 
 
 def _summary(report):
-    stakes = [row.stake_units for row in report.observations]
     streaks = [row.streak_before for row in report.observations]
     return {
         "bets": report.bets,
@@ -56,6 +54,7 @@ def main() -> int:
         report = run_team_progression_backtest(matches, min_history=args.min_history, top_n=args.top_n)
         summary = _summary(report)
         datasets.append({"dataset": str(path.relative_to(scope.root)), "matches": len(matches), **summary})
+        aggregate["matches"] += len(matches)
         for key in ("bets", "draws", "non_draws", "teams_selected", "series_started", "series_completed"):
             aggregate[key] += summary[key]
         aggregate["max_streak"] = max(aggregate["max_streak"], summary["max_streak"])
@@ -69,11 +68,10 @@ def main() -> int:
             stats["draws"] += int(row.actual_draw)
             stats["max_streak"] = max(stats["max_streak"], row.streak_before)
             stats["max_stake_units"] = max(stats["max_stake_units"], row.stake_units)
-        for row in report.observations:
             if row.streak_before == 0:
-                team_stats[(path.name, row.team)]["series_started"] += 1
+                stats["series_started"] += 1
             if row.actual_draw:
-                team_stats[(path.name, row.team)]["series_completed"] += 1
+                stats["series_completed"] += 1
 
     aggregate["hit_rate"] = aggregate["draws"] / aggregate["bets"] if aggregate["bets"] else 0.0
     aggregate["completion_rate"] = aggregate["series_completed"] / aggregate["series_started"] if aggregate["series_started"] else 0.0
@@ -90,7 +88,12 @@ def main() -> int:
         teams.append(stats)
     teams.sort(key=lambda row: (-row["hit_rate"], -row["bets"], row["team"]))
 
-    payload = {"scope": {"start_season": scope.start_season, "end_season": scope.end_season}, "aggregate": dict(aggregate), "datasets": datasets, "team_breakdown": teams[:100]}
+    payload = {
+        "scope": {"start_season": scope.start_season, "end_season": scope.end_season},
+        "aggregate": dict(aggregate),
+        "datasets": datasets,
+        "team_breakdown": teams[:100],
+    }
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(json.dumps(payload, indent=2), encoding="utf-8")
     print(json.dumps(payload["aggregate"], indent=2))
