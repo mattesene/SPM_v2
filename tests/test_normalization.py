@@ -10,6 +10,18 @@ def test_team_names_are_normalized_deterministically() -> None:
     assert canonical_team_name("Internazionale Milano") == "inter"
 
 
+def test_current_live_provider_aliases_resolve_to_historical_names() -> None:
+    assert canonical_team_name("Stoccarda") == "stuttgart"
+    assert canonical_team_name("VfB Stuttgart") == "stuttgart"
+    assert canonical_team_name("Colonia") == "koeln"
+    assert canonical_team_name("1. FC Köln") == "koeln"
+    assert canonical_team_name("Birmingham") == "birmingham"
+    assert canonical_team_name("Birmingham City") == "birmingham"
+    assert canonical_team_name("Wolverhampton") == "wolverhampton"
+    assert canonical_team_name("Wolverhampton Wanderers") == "wolverhampton"
+    assert canonical_team_name("Wolves") == "wolverhampton"
+
+
 def test_identity_uses_canonical_team_names() -> None:
     a = MatchRecord(date(2026, 8, 8), "Inter Milan", "AC Milan", competition="Serie A")
     b = MatchRecord(date(2026, 8, 8), "Internazionale", "Milan", competition="Serie A")
