@@ -16,5 +16,3 @@ class Fixture:
     def __post_init__(self) -> None:
         if not self.home_team.strip() or not self.away_team.strip():
             raise ValueError("Team names cannot be empty")
-        if self.home_team.strip() == self.away_team.strip():
-            raise ValueError("Home and away teams must differ")
