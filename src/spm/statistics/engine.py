@@ -5,7 +5,7 @@ from datetime import date
 
 from spm.data.models import Match
 from spm.data.season import Season
-from spm.statistics.features import recent_form
+from spm.statistics.features import draw_rate_after_streak, draw_streak, recent_form
 from spm.statistics.model import PareggioModel
 
 
@@ -22,10 +22,15 @@ class SPMScore:
     draw_signal: float
     goal_balance_signal: float
     weights: tuple[float, float, float, float]
+    selected_team: str = ""
+    selected_team_draw_rate: float = 0.0
+    selected_team_streak: int = 0
+    selected_team_streak_draw_rate: float = 0.0
+    team_probability: float = 0.0
 
 
 class SPMEngine:
-    """Rank fixtures using calibrated, interpretable draw signals."""
+    """Rank upcoming fixtures by the strength of the team-level draw signal."""
 
     def __init__(self, form_window: int = 5, decay: float = 0.85, weights: tuple[float, float, float, float] = DEFAULT_WEIGHTS) -> None:
         if form_window < 1:
@@ -51,15 +56,31 @@ class SPMEngine:
         goal_balance_signal = max(0.0, 1.0 - min(goal_gap / 3.0, 1.0))
 
         features = (prediction.probability, form_balance, draw_signal, goal_balance_signal)
-        probability = min(1.0, max(0.0, sum(x * w for x, w in zip(features, self.weights))))
+        match_probability = min(1.0, max(0.0, sum(x * w for x, w in zip(features, self.weights))))
+
+        team_rows = []
+        for team, form in ((home_team, home_form), (away_team, away_form)):
+            streak = draw_streak(historical, team, as_of)
+            streak_rate = draw_rate_after_streak(historical, team, streak, as_of)
+            # Team propensity is driven primarily by observed draw frequency,
+            # with the streak-conditioned rate receiving extra weight when data exists.
+            team_rate = form.draw_rate
+            propensity = team_rate * 0.55 + streak_rate * 0.45 if streak_rate > 0 else team_rate
+            team_probability = min(1.0, max(0.0, 0.70 * match_probability + 0.30 * propensity))
+            team_rows.append((team, team_probability, team_rate, streak, streak_rate))
+
+        selected_team, team_probability, team_rate, streak, streak_rate = max(
+            team_rows,
+            key=lambda row: (row[1], row[3], row[2], row[0]),
+        )
         return SPMScore(
-            home_team, away_team, probability, probability * 100.0,
+            home_team, away_team, team_probability, team_probability * 100.0,
             form_balance, draw_signal, goal_balance_signal, self.weights,
+            selected_team, team_rate, streak, streak_rate, team_probability,
         )
 
     def rank(self, matches: list[Match], fixtures: list[tuple[str, str]], as_of: date) -> list[SPMScore]:
         return sorted(
             (self.score(matches, home, away, as_of) for home, away in fixtures),
-            key=lambda item: item.spm_score,
-            reverse=True,
+            key=lambda item: (-item.team_probability, -item.selected_team_streak, item.selected_team),
         )
