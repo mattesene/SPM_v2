@@ -85,15 +85,31 @@ def draw_streak(matches: list[Match], team: str, as_of: date) -> int:
     return streak
 
 
-def draw_rate_after_streak(matches: list[Match], team: str, streak: int, as_of: date) -> float:
-    """Return the historical probability of a draw after an identical no-draw streak."""
+def draw_rate_after_streak(
+    matches: list[Match],
+    team: str,
+    streak: int,
+    as_of: date,
+    *,
+    prior_strength: float = 5.0,
+) -> float:
+    """Estimate draw probability after an identical no-draw streak.
+
+    The historical conditional rate is shrunk toward the team's overall draw
+    rate when only a few matching streaks are available. This prevents a
+    single historical occurrence from producing an unjustified 100% signal.
+    """
     if streak < 0:
         raise ValueError("streak must be non-negative")
+    if prior_strength < 0:
+        raise ValueError("prior_strength must be non-negative")
+
     relevant = list(reversed(_team_matches(matches, team, as_of)))
     if not relevant:
         return 0.0
+    overall_rate = sum(m.is_draw for m in relevant) / len(relevant)
     if streak == 0:
-        return sum(m.is_draw for m in relevant) / len(relevant)
+        return overall_rate
 
     opportunities = draws = 0
     for index, match in enumerate(relevant):
@@ -103,4 +119,9 @@ def draw_rate_after_streak(matches: list[Match], team: str, streak: int, as_of: 
         if len(previous) == streak and all(not m.is_draw for m in previous):
             opportunities += 1
             draws += 1
-    return draws / opportunities if opportunities else 0.0
+
+    if not opportunities:
+        return overall_rate
+    if prior_strength == 0:
+        return draws / opportunities
+    return (draws + prior_strength * overall_rate) / (opportunities + prior_strength)
