@@ -45,7 +45,7 @@ def main() -> int:
             print(f"live_refresh,fetched={result.fetched},written={result.written},rejected={result.rejected},duplicates={result.duplicates_removed}")
         from spm.backtest.oos_ranking import load_oos_ranking
         entries = load_oos_ranking(args.oos) if args.oos else ()
-        run_live_from_database(args.db, list(entries), as_of=as_of, output=args.html, oos_path=args.oos)
+        run_live_from_database(args.db, list(entries), as_of=as_of, output=args.html, oos_path=args.oos, max_match_age_days=None)
         print(f"live_report,{args.html}")
         return 0
 
