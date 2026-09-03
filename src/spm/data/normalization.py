@@ -26,9 +26,11 @@ TEAM_ALIASES = (
     TeamAlias("lazio", ("lazio", "ss lazio")),
     TeamAlias("sociedad", ("sociedad", "real sociedad")),
     TeamAlias("celta", ("celta", "celta vigo")),
-    TeamAlias("stuttgart", ("stuttgart", "stoccarda")),
-    TeamAlias("koeln", ("koeln", "koln", "kolonia", "fc koln", "fc kolonia")),
+    TeamAlias("stuttgart", ("stuttgart", "stoccarda", "vfb stuttgart")),
+    TeamAlias("koeln", ("koeln", "koln", "kolonia", "fc koln", "fc kolonia", "1 fc koln", "1 fc kolonia", "1 f c koln", "1 f c kolonia")),
     TeamAlias("betis", ("betis", "real betis")),
+    TeamAlias("birmingham", ("birmingham", "birmingham city")),
+    TeamAlias("wolverhampton", ("wolverhampton", "wolverhampton wanderers", "wolves")),
 )
 
 
