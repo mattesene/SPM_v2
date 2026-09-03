@@ -7,8 +7,10 @@ from spm.data.historical_scope import default_historical_scope
 
 def main() -> int:
     scope = default_historical_scope(Path(".historical-cache"))
-    assert scope.start_season == "2019-20"
-    assert scope.end_season == "2025-26"
+    seasons = {source.season for source in scope.catalog.sources}
+    assert len(scope.catalog.sources) == 35
+    assert "1920" in seasons
+    assert "2526" in seasons
 
     result = simulate_draw_progression_with_odds(
         [("A", False, 2.0), ("A", True, 2.5)],
