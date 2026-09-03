@@ -17,13 +17,7 @@ class EdgeStakingResult:
     staking: OddsStakingResult
 
 
-def run_edge_staking(
-    observations: Iterable[MarketBacktestObservation],
-    *,
-    min_edge: float = 0.0,
-    initial_bankroll: float = 1_000.0,
-    base_stake: float = 10.0,
-) -> EdgeStakingResult:
+def run_edge_staking(observations: Iterable[MarketBacktestObservation], *, min_edge: float = 0.0, initial_bankroll: float = 1_000.0, base_stake: float = 10.0) -> EdgeStakingResult:
     """Stake only when model probability exceeds market implied probability."""
     if min_edge < 0.0:
         raise ValueError("min_edge cannot be negative")
@@ -38,11 +32,7 @@ def run_edge_staking(
         if edge >= min_edge:
             selected += 1
             positive_edge += int(edge > 0.0)
-            team = row.selected_team or row.home_team
+            team = getattr(row, "selected_team", None) or row.home_team
             selections.append((team, row.actual_draw, row.draw_odds))
-    staking = simulate_draw_progression_with_odds(
-        selections,
-        initial_bankroll=initial_bankroll,
-        base_stake=base_stake,
-    )
+    staking = simulate_draw_progression_with_odds(selections, initial_bankroll=initial_bankroll, base_stake=base_stake)
     return EdgeStakingResult(len(rows), priced, selected, positive_edge, staking)
