@@ -4,6 +4,7 @@ from __future__ import annotations
 import argparse
 import json
 from collections import defaultdict
+from concurrent.futures import ProcessPoolExecutor
 from pathlib import Path
 
 from spm.backtest.team_progression import run_team_progression_backtest
@@ -31,53 +32,65 @@ def _summary(report):
     }
 
 
+def _run_dataset(task):
+    path, root, min_history, top_n = task
+    matches = CSVMatchImporter().load(path)
+    report = run_team_progression_backtest(matches, min_history=min_history, top_n=top_n)
+    return path, root, len(matches), report
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--cache", type=Path, default=Path(".historical-cache"))
     parser.add_argument("--output", type=Path, default=Path("reports/team_progression_backtest.json"))
     parser.add_argument("--min-history", type=int, default=5)
     parser.add_argument("--top-n", type=int, default=5)
+    parser.add_argument("--workers", type=int, default=2)
     args = parser.parse_args()
+    if args.workers < 1:
+        raise ValueError("workers must be positive")
 
     scope = default_historical_scope(args.cache)
     prepared = prepare_historical_scope(scope)
     if not prepared.complete:
         raise RuntimeError(f"Historical dataset scope incomplete: {len(prepared.missing)} dataset(s) missing")
 
-    importer = CSVMatchImporter()
+    paths = sorted(scope.root.rglob("*.csv"))
+    tasks = [(path, scope.root, args.min_history, args.top_n) for path in paths]
     datasets = []
     aggregate = defaultdict(int)
     team_stats = defaultdict(lambda: {"bets": 0, "draws": 0, "series_started": 0, "series_completed": 0, "max_streak": 0, "max_stake_units": 0})
 
-    for path in sorted(scope.root.rglob("*.csv")):
-        matches = importer.load(path)
-        report = run_team_progression_backtest(matches, min_history=args.min_history, top_n=args.top_n)
-        summary = _summary(report)
-        datasets.append({"dataset": str(path.relative_to(scope.root)), "matches": len(matches), **summary})
-        aggregate["matches"] += len(matches)
-        for key in ("bets", "draws", "non_draws", "teams_selected", "series_started", "series_completed"):
-            aggregate[key] += summary[key]
-        aggregate["max_streak"] = max(aggregate["max_streak"], summary["max_streak"])
-        aggregate["max_stake_units"] = max(aggregate["max_stake_units"], summary["max_stake_units"])
-        aggregate["max_capital_units"] = max(aggregate["max_capital_units"], summary["max_capital_units"])
-        aggregate["busts"] += summary["busts"]
-        for row in report.observations:
-            key = (path.name, row.team)
-            stats = team_stats[key]
-            stats["bets"] += 1
-            stats["draws"] += int(row.actual_draw)
-            stats["max_streak"] = max(stats["max_streak"], row.streak_before)
-            stats["max_stake_units"] = max(stats["max_stake_units"], row.stake_units)
-            if row.streak_before == 0:
-                stats["series_started"] += 1
-            if row.actual_draw:
-                stats["series_completed"] += 1
+    with ProcessPoolExecutor(max_workers=min(args.workers, len(tasks) or 1)) as executor:
+        results = executor.map(_run_dataset, tasks)
+        for path, root, match_count, report in results:
+            summary = _summary(report)
+            datasets.append({"dataset": str(path.relative_to(root)), "matches": match_count, **summary})
+            aggregate["matches"] += match_count
+            for key in ("bets", "draws", "non_draws", "teams_selected", "series_started", "series_completed"):
+                aggregate[key] += summary[key]
+            aggregate["max_streak"] = max(aggregate["max_streak"], summary["max_streak"])
+            aggregate["max_stake_units"] = max(aggregate["max_stake_units"], summary["max_stake_units"])
+            aggregate["max_capital_units"] = max(aggregate["max_capital_units"], summary["max_capital_units"])
+            aggregate["busts"] += summary["busts"]
+            for row in report.observations:
+                key = (path.name, row.team)
+                stats = team_stats[key]
+                stats["bets"] += 1
+                stats["draws"] += int(row.actual_draw)
+                stats["max_streak"] = max(stats["max_streak"], row.streak_before)
+                stats["max_stake_units"] = max(stats["max_stake_units"], row.stake_units)
+                if row.streak_before == 0:
+                    stats["series_started"] += 1
+                if row.actual_draw:
+                    stats["series_completed"] += 1
 
     aggregate["hit_rate"] = aggregate["draws"] / aggregate["bets"] if aggregate["bets"] else 0.0
     aggregate["completion_rate"] = aggregate["series_completed"] / aggregate["series_started"] if aggregate["series_started"] else 0.0
     aggregate["dataset_count"] = len(datasets)
     aggregate["min_history"] = args.min_history
     aggregate["top_n"] = args.top_n
+    aggregate["workers"] = args.workers
 
     teams = []
     for (dataset, team), stats in team_stats.items():
