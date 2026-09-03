@@ -11,7 +11,7 @@ from spm.live.data_quality import assess_live_data
 from spm.live.report import build_upcoming_live_report
 
 
-def run_live_from_database(db_path: str | Path, oos_entries: list[OOSRankingEntry], *, as_of: date, output: str | Path, oos_path: str | Path | None = None, max_match_age_days: int | None = None) -> tuple:
+def run_live_from_database(db_path: str | Path, oos_entries: list[OOSRankingEntry], *, as_of: date, output: str | Path, oos_path: str | Path | None = None, max_match_age_days: int | None = 14) -> tuple:
     """Load Live inputs, enforce quality gates, and build the report."""
     if oos_path is not None:
         validate_live_inputs(db_path, oos_path)
