@@ -1,12 +1,13 @@
 """Leakage-safe historical backtest of the SPM same-team draw progression."""
 from __future__ import annotations
 
+from collections.abc import Iterable
 from dataclasses import dataclass
 from datetime import date
-from collections.abc import Iterable
 
 from spm.data.models import Match
 from spm.data.normalization import canonical_team_name
+from spm.data.season import Season
 from spm.statistics.engine import SPMEngine
 
 
@@ -61,12 +62,11 @@ def run_team_progression_backtest(
     top_n: int = 5,
     engine: SPMEngine | None = None,
 ) -> TeamProgressionReport:
-    """Replay the live team-first selection and same-team progression chronologically.
+    """Replay live team-first selection and same-team progression chronologically.
 
-    For every match date, candidates are scored using only matches strictly before
-    that date. The top ``top_n`` distinct teams are selected. Once a team is
-    selected, its next stake doubles after a non-draw and resets after a draw.
-    A team is never replaced by another team inside an active progression.
+    Every date is scored only from matches strictly before that date. New
+    progressions use the top ``top_n`` distinct eligible teams; an active team
+    is then followed at its next fixture even if it falls out of the daily top N.
     """
     if min_history < 1 or top_n < 1:
         raise ValueError("min_history and top_n must be positive")
@@ -76,6 +76,7 @@ def run_team_progression_backtest(
     history: list[Match] = []
     active_stake: dict[str, int] = {}
     active_streak: dict[str, int] = {}
+    active_probability: dict[str, float] = {}
     observations: list[TeamProgressionObservation] = []
     teams_seen: set[str] = set()
     series_started = series_completed = draws = non_draws = 0
@@ -89,8 +90,17 @@ def run_team_progression_backtest(
             day_matches.append(ordered[index])
             index += 1
 
-        fixtures = [(m.home_team, m.away_team) for m in day_matches]
-        scored = predictor.rank(history, fixtures, current_date)
+        season = Season(history)
+        eligible_fixtures = [
+            m for m in day_matches
+            if season.team_stats(m.home_team).matches >= min_history
+            and season.team_stats(m.away_team).matches >= min_history
+        ]
+        scored = predictor.rank(
+            history,
+            [(m.home_team, m.away_team) for m in eligible_fixtures],
+            current_date,
+        )
         selected: dict[str, object] = {}
         for score in scored:
             team = canonical_team_name(score.selected_team)
@@ -100,13 +110,9 @@ def run_team_progression_backtest(
             if len(selected) >= top_n:
                 break
 
-        # Only start a new progression when the team is not already active.
-        # Existing active teams are followed through their next fixture.
+        # Active progressions take precedence over a new daily selection.
         for match in day_matches:
-            participants = {
-                canonical_team_name(match.home_team),
-                canonical_team_name(match.away_team),
-            }
+            participants = {canonical_team_name(match.home_team), canonical_team_name(match.away_team)}
             active_today = participants.intersection(active_stake)
             new_today = participants.intersection(selected).difference(active_stake)
             teams_for_day = active_today | new_today
@@ -115,6 +121,7 @@ def run_team_progression_backtest(
                     score = selected[team]
                     active_stake[team] = 1
                     active_streak[team] = 0
+                    active_probability[team] = float(score.team_probability)
                     series_started += 1
                     teams_seen.add(team)
                 team_name, opponent = _team_and_opponent(match, team)
@@ -125,7 +132,7 @@ def run_team_progression_backtest(
                     current_date,
                     team_name,
                     opponent,
-                    float(score.team_probability) if team not in active_today else 0.0,
+                    active_probability[team],
                     streak,
                     is_draw,
                     stake,
@@ -137,6 +144,7 @@ def run_team_progression_backtest(
                     series_completed += 1
                     active_stake.pop(team, None)
                     active_streak.pop(team, None)
+                    active_probability.pop(team, None)
                 else:
                     non_draws += 1
                     active_stake[team] = stake * 2
@@ -146,14 +154,6 @@ def run_team_progression_backtest(
         history.extend(day_matches)
 
     return TeamProgressionReport(
-        tuple(observations),
-        len(teams_seen),
-        series_started,
-        series_completed,
-        draws,
-        non_draws,
-        max_streak,
-        max_stake,
-        max_capital,
-        busts,
+        tuple(observations), len(teams_seen), series_started, series_completed,
+        draws, non_draws, max_streak, max_stake, max_capital, busts,
     )
