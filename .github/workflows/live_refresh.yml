@@ -62,8 +62,9 @@ jobs:
           fi
           test -s docs/index.html
           echo "Generated dashboard: $(wc -c < docs/index.html) bytes"
-          echo "Live picks in dashboard: $(grep -o 'LIVE PICK' docs/index.html | wc -l)"
-          grep -q 'LIVE PICK' docs/index.html
+          echo "Teams selected in dashboard: $(grep -o 'SQUADRA DA SEGUIRE' docs/index.html | wc -l)"
+          grep -q 'SQUADRA DA SEGUIRE' docs/index.html
+          grep -q 'Probabilità squadra' docs/index.html
       - name: Publish dashboard to main
         run: |
           set -euo pipefail
