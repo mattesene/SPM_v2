@@ -18,9 +18,14 @@ def run_live_from_database(
     as_of: date,
     output: str | Path,
     oos_path: str | Path | None = None,
-    max_match_age_days: int = 14,
+    max_match_age_days: int | None = None,
 ) -> tuple:
-    """Load Live inputs, enforce quality gates, and build the report."""
+    """Load Live inputs, enforce quality gates, and build the report.
+
+    Live fixtures are current, while the model's completed matches are the
+    historical training corpus.  Recency of completed matches is therefore
+    opt-in rather than a production requirement.
+    """
     if oos_path is not None:
         validate_live_inputs(db_path, oos_path)
     else:
