@@ -7,6 +7,7 @@ from collections import defaultdict
 from concurrent.futures import ProcessPoolExecutor
 from pathlib import Path
 
+from spm.backtest.calibration import build_calibration
 from spm.backtest.team_progression import run_team_progression_backtest
 from spm.data.csv import CSVMatchImporter
 from spm.data.historical_pipeline import prepare_historical_scope
@@ -60,12 +61,14 @@ def main() -> int:
     datasets = []
     aggregate = defaultdict(int)
     team_stats = defaultdict(lambda: {"bets": 0, "draws": 0, "series_started": 0, "series_completed": 0, "max_streak": 0, "max_stake_units": 0})
+    all_observations = []
 
     with ProcessPoolExecutor(max_workers=min(args.workers, len(tasks) or 1)) as executor:
         results = executor.map(_run_dataset, tasks)
         for path, root, match_count, report in results:
             summary = _summary(report)
             datasets.append({"dataset": str(path.relative_to(root)), "matches": match_count, **summary})
+            all_observations.extend(report.observations)
             aggregate["matches"] += match_count
             for key in ("bets", "draws", "non_draws", "teams_selected", "series_started", "series_completed"):
                 aggregate[key] += summary[key]
@@ -104,6 +107,7 @@ def main() -> int:
     payload = {
         "scope": {"start_season": scope.start_season, "end_season": scope.end_season},
         "aggregate": dict(aggregate),
+        "calibration": build_calibration(all_observations),
         "datasets": datasets,
         "team_breakdown": teams[:100],
     }
