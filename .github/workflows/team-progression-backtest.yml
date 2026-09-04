@@ -5,6 +5,7 @@ on:
   push:
     paths:
       - "src/spm/backtest/team_progression.py"
+      - "src/spm/backtest/calibration.py"
       - "src/spm/statistics/engine.py"
       - "src/spm/statistics/features.py"
       - "scripts/run_team_progression_backtest.py"
@@ -37,9 +38,13 @@ jobs:
           from pathlib import Path
           report = json.loads(Path("reports/team_progression_backtest.json").read_text())
           aggregate = report["aggregate"]
+          calibration = report["calibration"]
           assert aggregate["dataset_count"] == 35
           assert aggregate["bets"] > 0
+          assert calibration["streak_buckets"]
+          assert calibration["probability_buckets"]
           print(json.dumps(aggregate, indent=2))
+          print(json.dumps(calibration, indent=2))
           PY
       - name: Upload team progression report
         uses: actions/upload-artifact@v4
