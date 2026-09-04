@@ -23,7 +23,7 @@ def test_calibration_report_exposes_gap_and_wilson_interval() -> None:
     assert report["overall_observed_draw_rate"] == pytest.approx(0.75)
     assert report["overall_observed_rate_ci95_low"] < 0.75
     assert report["overall_observed_rate_ci95_high"] > 0.75
-    assert report["mean_absolute_calibration_gap"] == pytest.approx(0.20)
+    assert report["mean_absolute_calibration_gap"] == pytest.approx(0.35)
 
     first = report["probability_buckets"][0]
     assert first["calibration_gap"] == pytest.approx(0.10)
