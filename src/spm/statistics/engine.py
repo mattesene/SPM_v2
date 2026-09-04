@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from datetime import date
 
 from spm.data.models import Match
+from spm.data.normalization import canonical_team_name
 from spm.data.season import Season
 from spm.statistics.features import draw_rate_after_streak, draw_streak, recent_form
 from spm.statistics.model import PareggioModel
@@ -44,7 +45,14 @@ class SPMEngine:
         self.weights = weights
         self.model = PareggioModel()
 
-    def score(self, matches: list[Match], home_team: str, away_team: str, as_of: date) -> SPMScore:
+    def score(
+        self,
+        matches: list[Match],
+        home_team: str,
+        away_team: str,
+        as_of: date,
+        eligible_teams: set[str] | None = None,
+    ) -> SPMScore:
         historical = [m for m in matches if m.date < as_of]
         prediction = self.model.predict(Season(historical), home_team, away_team)
         home_form = recent_form(historical, home_team, as_of, self.form_window, self.decay)
@@ -60,6 +68,8 @@ class SPMEngine:
 
         team_rows = []
         for team, form in ((home_team, home_form), (away_team, away_form)):
+            if eligible_teams is not None and canonical_team_name(team) not in eligible_teams:
+                continue
             streak = draw_streak(historical, team, as_of)
             streak_rate = draw_rate_after_streak(historical, team, streak, as_of)
             # Team propensity is driven primarily by observed draw frequency,
@@ -68,6 +78,9 @@ class SPMEngine:
             propensity = team_rate * 0.55 + streak_rate * 0.45 if streak_rate > 0 else team_rate
             team_probability = min(1.0, max(0.0, 0.70 * match_probability + 0.30 * propensity))
             team_rows.append((team, team_probability, team_rate, streak, streak_rate))
+
+        if not team_rows:
+            raise ValueError("fixture has no eligible teams")
 
         selected_team, team_probability, team_rate, streak, streak_rate = max(
             team_rows,
@@ -79,8 +92,17 @@ class SPMEngine:
             selected_team, team_rate, streak, streak_rate, team_probability,
         )
 
-    def rank(self, matches: list[Match], fixtures: list[tuple[str, str]], as_of: date) -> list[SPMScore]:
+    def rank(
+        self,
+        matches: list[Match],
+        fixtures: list[tuple[str, str]],
+        as_of: date,
+        eligible_teams: set[str] | None = None,
+    ) -> list[SPMScore]:
         return sorted(
-            (self.score(matches, home, away, as_of) for home, away in fixtures),
+            (
+                self.score(matches, home, away, as_of, eligible_teams=eligible_teams)
+                for home, away in fixtures
+            ),
             key=lambda item: (-item.team_probability, -item.selected_team_streak, item.selected_team),
         )
