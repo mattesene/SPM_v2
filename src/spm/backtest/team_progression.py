@@ -65,8 +65,9 @@ def run_team_progression_backtest(
     """Replay live team-first selection and same-team progression chronologically.
 
     Every date is scored only from matches strictly before that date. New
-    progressions use the top ``top_n`` distinct eligible teams; an active team
-    is then followed at its next fixture even if it falls out of the daily top N.
+    progressions use the top ``top_n`` distinct teams whose own historical
+    sample reaches ``min_history``; an active team is then followed at its
+    next fixture even if it falls out of the daily top N.
     """
     if min_history < 1 or top_n < 1:
         raise ValueError("min_history and top_n must be positive")
@@ -91,15 +92,22 @@ def run_team_progression_backtest(
             index += 1
 
         season = Season(history)
+        ready_teams = {
+            canonical_team_name(team)
+            for match in day_matches
+            for team in (match.home_team, match.away_team)
+            if season.team_stats(team).matches >= min_history
+        }
         eligible_fixtures = [
             m for m in day_matches
-            if season.team_stats(m.home_team).matches >= min_history
-            and season.team_stats(m.away_team).matches >= min_history
+            if canonical_team_name(m.home_team) in ready_teams
+            or canonical_team_name(m.away_team) in ready_teams
         ]
         scored = predictor.rank(
             history,
             [(m.home_team, m.away_team) for m in eligible_fixtures],
             current_date,
+            eligible_teams=ready_teams,
         )
         selected: dict[str, object] = {}
         for score in scored:
