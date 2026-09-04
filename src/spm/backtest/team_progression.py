@@ -8,7 +8,7 @@ from datetime import date
 from spm.data.models import Match
 from spm.data.normalization import canonical_team_name
 from spm.data.season import Season
-from spm.statistics.engine import SPMEngine
+from spm.statistics.engine import SPMEngine, SPMScore
 
 
 @dataclass(frozen=True, slots=True)
@@ -68,6 +68,11 @@ def run_team_progression_backtest(
     progressions use the top ``top_n`` distinct teams whose own historical
     sample reaches ``min_history``; an active team is then followed at its
     next fixture even if it falls out of the daily top N.
+
+    Capital is measured as the cumulative stake already committed to all
+    open progressions. If both selected teams meet in the same fixture, both
+    progressions settle from that single match outcome, while capital is
+    counted once at the fixture level.
     """
     if min_history < 1 or top_n < 1:
         raise ValueError("min_history and top_n must be positive")
@@ -78,6 +83,7 @@ def run_team_progression_backtest(
     active_stake: dict[str, int] = {}
     active_streak: dict[str, int] = {}
     active_probability: dict[str, float] = {}
+    active_capital: dict[str, int] = {}
     observations: list[TeamProgressionObservation] = []
     teams_seen: set[str] = set()
     series_started = series_completed = draws = non_draws = 0
@@ -109,7 +115,7 @@ def run_team_progression_backtest(
             current_date,
             eligible_teams=ready_teams,
         )
-        selected: dict[str, object] = {}
+        selected: dict[str, SPMScore] = {}
         for score in scored:
             team = canonical_team_name(score.selected_team)
             if team in selected:
@@ -120,18 +126,31 @@ def run_team_progression_backtest(
 
         # Active progressions take precedence over a new daily selection.
         for match in day_matches:
-            participants = {canonical_team_name(match.home_team), canonical_team_name(match.away_team)}
+            participants = {
+                canonical_team_name(match.home_team),
+                canonical_team_name(match.away_team),
+            }
             active_today = participants.intersection(active_stake)
             new_today = participants.intersection(selected).difference(active_stake)
             teams_for_day = active_today | new_today
+
+            # Both sides can legitimately be active on the same fixture. They
+            # share the same match outcome; capital is therefore measured once
+            # from the combined open-progressions exposure.
             for team in sorted(teams_for_day):
                 if team not in active_stake:
                     score = selected[team]
                     active_stake[team] = 1
                     active_streak[team] = 0
                     active_probability[team] = float(score.team_probability)
+                    active_capital[team] = 1
                     series_started += 1
                     teams_seen.add(team)
+
+            if teams_for_day:
+                max_capital = max(max_capital, sum(active_capital.values()))
+
+            for team in sorted(teams_for_day):
                 team_name, opponent = _team_and_opponent(match, team)
                 stake = active_stake[team]
                 streak = active_streak[team]
@@ -153,11 +172,14 @@ def run_team_progression_backtest(
                     active_stake.pop(team, None)
                     active_streak.pop(team, None)
                     active_probability.pop(team, None)
+                    active_capital.pop(team, None)
                 else:
                     non_draws += 1
-                    active_stake[team] = stake * 2
+                    next_stake = stake * 2
+                    active_stake[team] = next_stake
                     active_streak[team] = streak + 1
-                    max_capital = max(max_capital, sum(active_stake.values()))
+                    active_capital[team] += next_stake
+                    max_capital = max(max_capital, sum(active_capital.values()))
 
         history.extend(day_matches)
 
