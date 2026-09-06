@@ -30,13 +30,20 @@ def _summary(report):
         "max_stake_units": report.max_stake_units,
         "max_capital_units": report.max_capital_units,
         "busts": report.busts,
+        "draw_odds": report.draw_odds,
+        "profit_units": report.profit_units,
+        "total_staked_units": report.total_staked_units,
+        "roi": report.roi,
+        "max_drawdown_units": report.max_drawdown_units,
     }
 
 
 def _run_dataset(task):
-    path, root, min_history, top_n = task
+    path, root, min_history, top_n, draw_odds = task
     matches = CSVMatchImporter().load(path)
-    report = run_team_progression_backtest(matches, min_history=min_history, top_n=top_n)
+    report = run_team_progression_backtest(
+        matches, min_history=min_history, top_n=top_n, draw_odds=draw_odds
+    )
     return path, root, len(matches), report
 
 
@@ -46,6 +53,7 @@ def main() -> int:
     parser.add_argument("--output", type=Path, default=Path("reports/team_progression_backtest.json"))
     parser.add_argument("--min-history", type=int, default=5)
     parser.add_argument("--top-n", type=int, default=5)
+    parser.add_argument("--draw-odds", type=float, default=None, help="Constant decimal draw odds for economic analysis")
     parser.add_argument("--workers", type=int, default=2)
     args = parser.parse_args()
     if args.workers < 1:
@@ -57,11 +65,12 @@ def main() -> int:
         raise RuntimeError(f"Historical dataset scope incomplete: {len(prepared.missing)} dataset(s) missing")
 
     paths = sorted(scope.root.rglob("*.csv"))
-    tasks = [(path, scope.root, args.min_history, args.top_n) for path in paths]
+    tasks = [(path, scope.root, args.min_history, args.top_n, args.draw_odds) for path in paths]
     datasets = []
     aggregate = defaultdict(int)
     team_stats = defaultdict(lambda: {"bets": 0, "draws": 0, "series_started": 0, "series_completed": 0, "max_streak": 0, "max_stake_units": 0})
     all_observations = []
+    economic_reports = []
 
     with ProcessPoolExecutor(max_workers=min(args.workers, len(tasks) or 1)) as executor:
         results = executor.map(_run_dataset, tasks)
@@ -76,6 +85,8 @@ def main() -> int:
             aggregate["max_stake_units"] = max(aggregate["max_stake_units"], summary["max_stake_units"])
             aggregate["max_capital_units"] = max(aggregate["max_capital_units"], summary["max_capital_units"])
             aggregate["busts"] += summary["busts"]
+            if args.draw_odds is not None:
+                economic_reports.append(report)
             for row in report.observations:
                 key = (path.name, row.team)
                 stats = team_stats[key]
@@ -94,6 +105,12 @@ def main() -> int:
     aggregate["min_history"] = args.min_history
     aggregate["top_n"] = args.top_n
     aggregate["workers"] = args.workers
+    aggregate["draw_odds"] = args.draw_odds
+    if economic_reports:
+        aggregate["profit_units"] = sum(r.profit_units or 0.0 for r in economic_reports)
+        aggregate["total_staked_units"] = sum(r.total_staked_units or 0.0 for r in economic_reports)
+        aggregate["roi"] = aggregate["profit_units"] / aggregate["total_staked_units"] if aggregate["total_staked_units"] else None
+        aggregate["max_drawdown_units"] = max(r.max_drawdown_units or 0.0 for r in economic_reports)
 
     teams = []
     for (dataset, team), stats in team_stats.items():
