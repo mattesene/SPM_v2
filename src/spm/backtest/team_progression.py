@@ -34,6 +34,10 @@ class TeamProgressionReport:
     max_stake_units: int
     max_capital_units: int
     busts: int
+    profit_units: float | None = None
+    total_staked_units: float | None = None
+    max_drawdown_units: float | None = None
+    draw_odds: float | None = None
 
     @property
     def bets(self) -> int:
@@ -46,6 +50,12 @@ class TeamProgressionReport:
     @property
     def completion_rate(self) -> float:
         return self.series_completed / self.series_started if self.series_started else 0.0
+
+    @property
+    def roi(self) -> float | None:
+        if self.total_staked_units in (None, 0):
+            return None
+        return self.profit_units / self.total_staked_units
 
 
 def _team_and_opponent(match: Match, selected_team: str) -> tuple[str, str]:
@@ -61,21 +71,28 @@ def run_team_progression_backtest(
     min_history: int = 5,
     top_n: int = 5,
     engine: SPMEngine | None = None,
+    draw_odds: float | None = None,
 ) -> TeamProgressionReport:
-    """Replay live team-first selection and same-team progression chronologically.
+    """Replay live team-first selection and same-team draw progression chronologically.
 
     Every date is scored only from matches strictly before that date. New
     progressions use the top ``top_n`` distinct teams whose own historical
     sample reaches ``min_history``; an active team is then followed at its
     next fixture even if it falls out of the daily top N.
 
-    Capital is measured as the cumulative stake already committed to all
-    open progressions. If both selected teams meet in the same fixture, both
+    Capital is measured as the cumulative stake already committed to all open
+    progressions. If both selected teams meet in the same fixture, both
     progressions settle from that single match outcome, while capital is
     counted once at the fixture level.
+
+    If ``draw_odds`` is supplied, the report also calculates actual staking
+    economics: cumulative net profit, total amount staked, ROI and maximum
+    drawdown. No synthetic odds are assumed when it is omitted.
     """
     if min_history < 1 or top_n < 1:
         raise ValueError("min_history and top_n must be positive")
+    if draw_odds is not None and draw_odds <= 1.0:
+        raise ValueError("draw_odds must be greater than 1.0")
 
     ordered = sorted(matches, key=lambda m: (m.date, m.home_team, m.away_team))
     predictor = engine or SPMEngine()
@@ -88,6 +105,10 @@ def run_team_progression_backtest(
     teams_seen: set[str] = set()
     series_started = series_completed = draws = non_draws = 0
     max_streak = max_stake = max_capital = busts = 0
+    profit_units = 0.0
+    total_staked_units = 0.0
+    peak_profit = 0.0
+    max_drawdown = 0.0
 
     index = 0
     while index < len(ordered):
@@ -166,6 +187,11 @@ def run_team_progression_backtest(
                 ))
                 max_stake = max(max_stake, stake)
                 max_streak = max(max_streak, streak)
+                if draw_odds is not None:
+                    total_staked_units += stake
+                    profit_units += stake * (draw_odds - 1.0) if is_draw else -stake
+                    peak_profit = max(peak_profit, profit_units)
+                    max_drawdown = max(max_drawdown, peak_profit - profit_units)
                 if is_draw:
                     draws += 1
                     series_completed += 1
@@ -186,4 +212,8 @@ def run_team_progression_backtest(
     return TeamProgressionReport(
         tuple(observations), len(teams_seen), series_started, series_completed,
         draws, non_draws, max_streak, max_stake, max_capital, busts,
+        profit_units if draw_odds is not None else None,
+        total_staked_units if draw_odds is not None else None,
+        max_drawdown if draw_odds is not None else None,
+        draw_odds,
     )
