@@ -1,0 +1,49 @@
+from datetime import date
+
+from spm.backtest.team_progression import run_team_progression_backtest
+from spm.data.models import Match
+
+
+def _match(day: int, home: str, away: str, result: str) -> Match:
+    home_goals, away_goals = {
+        "D": (1, 1),
+        "H": (2, 0),
+        "A": (0, 2),
+    }[result]
+    return Match(
+        date=date(2025, 1, day),
+        home_team=home,
+        away_team=away,
+        home_goals=home_goals,
+        away_goals=away_goals,
+    )
+
+
+def test_progression_doubles_stake_after_non_draw():
+    matches = [
+        _match(1, "A", "B", "H"),
+        _match(2, "A", "C", "H"),
+        _match(3, "A", "D", "H"),
+        _match(4, "A", "E", "H"),
+        _match(5, "A", "F", "H"),
+        _match(6, "A", "G", "H"),
+        _match(7, "A", "H", "D"),
+    ]
+
+    report = run_team_progression_backtest(matches, min_history=5, top_n=1)
+
+    assert report.bets >= 1
+    assert report.max_stake_units >= 2
+    assert report.max_capital_units >= report.max_stake_units
+
+
+def test_report_is_safe_for_empty_input():
+    report = run_team_progression_backtest([], min_history=5, top_n=5)
+
+    assert report.bets == 0
+    assert report.series_started == 0
+    assert report.series_completed == 0
+    assert report.hit_rate == 0.0
+    assert report.completion_rate == 0.0
+    assert report.max_capital_units == 0
+    assert report.busts == 0
