@@ -82,12 +82,14 @@ def run_team_progression_backtest(
 
     Capital is measured as the cumulative stake already committed to all open
     progressions. If both selected teams meet in the same fixture, both
-    progressions settle from that single match outcome, while capital is
-    counted once at the fixture level.
+    progressions settle from that single match outcome and each real stake is
+    included in the economic result.
 
     If ``draw_odds`` is supplied, the report also calculates actual staking
     economics: cumulative net profit, total amount staked, ROI and maximum
-    drawdown. No synthetic odds are assumed when it is omitted.
+    drawdown. Drawdown is updated once per fixture, so two progressions
+    settling on the same match cannot create an artificial intra-fixture peak.
+    No synthetic odds are assumed when it is omitted.
     """
     if min_history < 1 or top_n < 1:
         raise ValueError("min_history and top_n must be positive")
@@ -155,9 +157,6 @@ def run_team_progression_backtest(
             new_today = participants.intersection(selected).difference(active_stake)
             teams_for_day = active_today | new_today
 
-            # Both sides can legitimately be active on the same fixture. They
-            # share the same match outcome; capital is therefore measured once
-            # from the combined open-progressions exposure.
             for team in sorted(teams_for_day):
                 if team not in active_stake:
                     score = selected[team]
@@ -171,6 +170,8 @@ def run_team_progression_backtest(
             if teams_for_day:
                 max_capital = max(max_capital, sum(active_capital.values()))
 
+            fixture_profit = 0.0
+            fixture_staked = 0.0
             for team in sorted(teams_for_day):
                 team_name, opponent = _team_and_opponent(match, team)
                 stake = active_stake[team]
@@ -188,10 +189,8 @@ def run_team_progression_backtest(
                 max_stake = max(max_stake, stake)
                 max_streak = max(max_streak, streak)
                 if draw_odds is not None:
-                    total_staked_units += stake
-                    profit_units += stake * (draw_odds - 1.0) if is_draw else -stake
-                    peak_profit = max(peak_profit, profit_units)
-                    max_drawdown = max(max_drawdown, peak_profit - profit_units)
+                    fixture_staked += stake
+                    fixture_profit += stake * (draw_odds - 1.0) if is_draw else -stake
                 if is_draw:
                     draws += 1
                     series_completed += 1
@@ -206,6 +205,12 @@ def run_team_progression_backtest(
                     active_streak[team] = streak + 1
                     active_capital[team] += next_stake
                     max_capital = max(max_capital, sum(active_capital.values()))
+
+            if draw_odds is not None and teams_for_day:
+                total_staked_units += fixture_staked
+                profit_units += fixture_profit
+                peak_profit = max(peak_profit, profit_units)
+                max_drawdown = max(max_drawdown, peak_profit - profit_units)
 
         history.extend(day_matches)
 
