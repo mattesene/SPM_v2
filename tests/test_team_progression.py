@@ -33,8 +33,9 @@ def test_progression_doubles_stake_after_non_draw():
     report = run_team_progression_backtest(matches, min_history=5, top_n=1)
 
     assert report.bets >= 1
-    assert report.max_stake_units >= 2
-    assert report.max_capital_units >= report.max_stake_units
+    assert report.max_stake_units == 2
+    # The series commits 1 unit on the first bet and 2 on the next one.
+    assert report.max_capital_units == 3
 
 
 def test_odds_economics_are_explicit_and_exact():
@@ -73,3 +74,14 @@ def test_report_is_safe_for_empty_input():
     assert report.busts == 0
     assert report.profit_units is None
     assert report.roi is None
+
+
+def test_invalid_draw_odds_are_rejected():
+    matches = [_match(1, "A", "B", "H")]
+
+    try:
+        run_team_progression_backtest(matches, draw_odds=1.0)
+    except ValueError as exc:
+        assert str(exc) == "draw_odds must be greater than 1.0"
+    else:
+        raise AssertionError("expected invalid draw odds to raise ValueError")
