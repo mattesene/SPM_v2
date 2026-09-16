@@ -75,13 +75,13 @@ def test_odds_below_two_can_leave_a_completed_series_in_loss():
     ]
 
     report = run_team_progression_backtest(
-        matches, min_history=5, top_n=1, draw_odds=1.5
+        matches, min_history=5, top_n=1, draw_odds=1.4
     )
 
-    # -1 + 2 * (1.5 - 1) = 0: the doubled stake only breaks even here.
-    assert report.profit_units == 0.0
+    # -1 + 2 * (1.4 - 1) = -0.2: doubling does not recover the loss.
+    assert report.profit_units == -0.2
     assert report.total_staked_units == 3.0
-    assert report.roi == 0.0
+    assert report.roi == -0.2 / 3.0
 
 
 def test_report_is_safe_for_empty_input():
