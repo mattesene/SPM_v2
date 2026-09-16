@@ -1,4 +1,5 @@
 from datetime import date
+from types import SimpleNamespace
 
 from spm.backtest.team_progression import run_team_progression_backtest
 from spm.data.models import Match
@@ -66,6 +67,44 @@ def test_two_active_progressions_settle_on_same_fixture():
     assert report.total_staked_units == 6.0
     assert report.profit_units == 6.0
     assert report.max_drawdown_units == 2.0
+
+
+def test_active_progression_continues_after_team_falls_out_of_top_n():
+    class ScheduledEngine:
+        def rank(self, history, fixtures, as_of, *, eligible_teams):
+            selected_team = "A" if as_of.day == 6 else "B"
+            return [SimpleNamespace(selected_team=selected_team, team_probability=0.90)]
+
+    matches = [
+        _match(1, "A", "X", "H"),
+        _match(2, "A", "Y", "H"),
+        _match(3, "A", "Z", "H"),
+        _match(4, "A", "W", "H"),
+        _match(5, "A", "V", "H"),
+        _match(1, "B", "Q", "H"),
+        _match(2, "B", "R", "H"),
+        _match(3, "B", "S", "H"),
+        _match(4, "B", "T", "H"),
+        _match(5, "B", "U", "H"),
+        _match(6, "A", "C", "H"),
+        _match(7, "A", "B", "D"),
+    ]
+
+    report = run_team_progression_backtest(
+        matches, min_history=5, top_n=1, engine=ScheduledEngine()
+    )
+
+    # Day 6 starts A's progression. On day 7 the daily top-1 selection is B,
+    # but A is still active and must be followed at stake 2.
+    a_observations = [observation for observation in report.observations if observation.team == "A"]
+    assert len(a_observations) == 2
+    assert a_observations[0].date == date(2025, 1, 6)
+    assert a_observations[0].stake_units == 1
+    assert a_observations[1].date == date(2025, 1, 7)
+    assert a_observations[1].stake_units == 2
+    assert a_observations[1].streak_before == 1
+    assert report.series_started == 1
+    assert report.series_completed == 1
 
 
 def test_odds_economics_are_explicit_and_exact():
