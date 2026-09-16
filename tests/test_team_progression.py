@@ -62,6 +62,28 @@ def test_odds_economics_are_explicit_and_exact():
     assert report.draw_odds == 3.0
 
 
+def test_odds_below_two_can_leave_a_completed_series_in_loss():
+    matches = [
+        _match(1, "A", "B", "H"),
+        _match(2, "A", "C", "H"),
+        _match(3, "A", "D", "H"),
+        _match(4, "A", "E", "H"),
+        _match(5, "A", "F", "H"),
+        _match(6, "A", "G", "H"),
+        _match(7, "A", "H", "H"),
+        _match(8, "A", "I", "D"),
+    ]
+
+    report = run_team_progression_backtest(
+        matches, min_history=5, top_n=1, draw_odds=1.5
+    )
+
+    # -1 + 2 * (1.5 - 1) = 0: the doubled stake only breaks even here.
+    assert report.profit_units == 0.0
+    assert report.total_staked_units == 3.0
+    assert report.roi == 0.0
+
+
 def test_report_is_safe_for_empty_input():
     report = run_team_progression_backtest([], min_history=5, top_n=5)
 
