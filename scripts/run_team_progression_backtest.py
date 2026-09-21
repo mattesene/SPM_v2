@@ -8,7 +8,7 @@ from concurrent.futures import ProcessPoolExecutor
 from pathlib import Path
 
 from spm.backtest.calibration import build_calibration
-from spm.backtest.team_progression import evaluate_odds_sensitivity, run_team_progression_backtest
+from spm.backtest.team_progression import aggregate_economic_reports, evaluate_odds_sensitivity, run_team_progression_backtest
 from spm.data.csv import CSVMatchImporter
 from spm.data.historical_pipeline import prepare_historical_scope
 from spm.data.historical_scope import default_historical_scope
@@ -115,10 +115,9 @@ def main() -> int:
     aggregate["draw_odds"] = args.draw_odds
     odds_sensitivity = evaluate_odds_sensitivity(all_observations, sensitivity_odds)
     if economic_reports:
-        aggregate["profit_units"] = sum(r.profit_units or 0.0 for r in economic_reports)
-        aggregate["total_staked_units"] = sum(r.total_staked_units or 0.0 for r in economic_reports)
-        aggregate["roi"] = aggregate["profit_units"] / aggregate["total_staked_units"] if aggregate["total_staked_units"] else None
-        aggregate["max_drawdown_units"] = max(r.max_drawdown_units or 0.0 for r in economic_reports)
+        economic = aggregate_economic_reports(economic_reports)
+        aggregate.update(economic)
+        aggregate["max_drawdown_units"] = economic["max_dataset_drawdown_units"]
 
     teams = []
     for (dataset, team), stats in team_stats.items():
