@@ -306,7 +306,8 @@ def test_progression_stress_matches_theoretical_capital():
 
     assert result["observed_max_streak"] == 3
     assert result["observed_max_stake_units"] == 8
-    assert result["observed_max_committed_capital_units"] == 15
+    assert result["observed_max_series_capital_units"] == 15
+    assert result["streak_observation_counts"] == {"0": 1, "1": 1, "2": 1, "3": 1}
     assert result["theoretical_capital_by_streak"] == {
         "0": 1,
         "1": 3,
