@@ -244,3 +244,19 @@ def test_odds_sensitivity_rejects_invalid_values():
         assert str(exc) == "all odds values must be greater than 1.0"
     else:
         raise AssertionError("expected invalid sensitivity odds to raise ValueError")
+
+
+def test_aggregate_economic_reports_keeps_drawdown_dataset_scoped():
+    from spm.backtest.team_progression import TeamProgressionReport, aggregate_economic_reports
+
+    reports = (
+        TeamProgressionReport((), 1, 1, 1, 1, 0, 0, 1, 1, 0, 2.0, 1.0, 2.0, 2.0),
+        TeamProgressionReport((), 1, 1, 1, 1, 0, 0, 4, 7, 0, 3.0, 2.0, 5.0, 3.0),
+    )
+    result = aggregate_economic_reports(reports)
+
+    assert result["profit_units"] == 5.0
+    assert result["total_staked_units"] == 3.0
+    assert result["roi"] == 5.0 / 3.0
+    assert result["max_dataset_drawdown_units"] == 5.0
+    assert result["max_dataset_capital_units"] == 7
