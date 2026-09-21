@@ -207,3 +207,40 @@ def test_invalid_draw_odds_are_rejected():
         assert str(exc) == "draw_odds must be greater than 1.0"
     else:
         raise AssertionError("expected invalid draw odds to raise ValueError")
+
+
+
+def test_odds_sensitivity_reuses_same_observations():
+    from spm.backtest.team_progression import evaluate_odds_sensitivity
+
+    matches = [
+        _match(1, "A", "B", "H"),
+        _match(2, "A", "C", "H"),
+        _match(3, "A", "D", "H"),
+        _match(4, "A", "E", "H"),
+        _match(5, "A", "F", "H"),
+        _match(6, "A", "G", "H"),
+        _match(7, "A", "H", "H"),
+        _match(8, "A", "I", "D"),
+    ]
+    report = run_team_progression_backtest(matches, min_history=5, top_n=1)
+
+    sensitivity = evaluate_odds_sensitivity(report.observations, (1.4, 2.0, 3.0))
+
+    assert sensitivity[1.4]["profit_units"] == -0.2
+    assert sensitivity[2.0]["profit_units"] == 0.0
+    assert sensitivity[3.0]["profit_units"] == 3.0
+    assert sensitivity[3.0]["total_staked_units"] == 3.0
+    assert sensitivity[3.0]["roi"] == 1.0
+    assert sensitivity[3.0]["max_drawdown_units"] == 1.0
+
+
+def test_odds_sensitivity_rejects_invalid_values():
+    from spm.backtest.team_progression import evaluate_odds_sensitivity
+
+    try:
+        evaluate_odds_sensitivity((), (1.0,))
+    except ValueError as exc:
+        assert str(exc) == "all odds values must be greater than 1.0"
+    else:
+        raise AssertionError("expected invalid sensitivity odds to raise ValueError")
