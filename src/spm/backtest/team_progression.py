@@ -113,6 +113,59 @@ def evaluate_odds_sensitivity(
         }
     return results
 
+def build_progression_stress(
+    observations: Iterable[TeamProgressionObservation],
+) -> dict[str, object]:
+    """Summarize observed and theoretical capital requirements of progression.
+
+    The theoretical requirement after n consecutive non-draws includes
+    the next doubled stake, matching max_capital_units in the backtest:
+    1 + 2 + ... + 2**n = 2**(n + 1) - 1.
+    """
+    rows = tuple(observations)
+    series_capital: dict[str, int] = {}
+    observed_max_streak = 0
+    observed_max_stake = 0
+    observed_max_capital = 0
+    max_streak_examples: list[dict[str, object]] = []
+
+    for row in rows:
+        team = canonical_team_name(row.team)
+        if row.streak_before == 0 or team not in series_capital:
+            series_capital[team] = 0
+        series_capital[team] += row.stake_units
+        if not row.actual_draw:
+            series_capital[team] += row.stake_units * 2
+
+        observed_max_streak = max(observed_max_streak, row.streak_before)
+        observed_max_stake = max(observed_max_stake, row.stake_units)
+        observed_max_capital = max(observed_max_capital, series_capital[team])
+
+        if row.streak_before == observed_max_streak:
+            max_streak_examples.append({
+                "date": row.date.isoformat(),
+                "team": team,
+                "opponent": canonical_team_name(row.opponent),
+                "streak_before": row.streak_before,
+                "stake_units": row.stake_units,
+            })
+
+    max_streak_examples = [
+        item for item in max_streak_examples
+        if item["streak_before"] == observed_max_streak
+    ][:20]
+    theoretical = {
+        str(streak): (2 ** (streak + 1)) - 1
+        for streak in range(observed_max_streak + 1)
+    }
+    return {
+        "observed_max_streak": observed_max_streak,
+        "observed_max_stake_units": observed_max_stake,
+        "observed_max_committed_capital_units": observed_max_capital,
+        "theoretical_capital_by_streak": theoretical,
+        "max_streak_examples": max_streak_examples,
+    }
+
 
 def aggregate_odds_sensitivity(
     sensitivity_reports: Iterable[dict[float, dict[str, float | None]]],
