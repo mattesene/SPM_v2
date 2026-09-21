@@ -107,6 +107,39 @@ def test_active_progression_continues_after_team_falls_out_of_top_n():
     assert report.series_completed == 1
 
 
+def test_max_capital_tracks_multiple_open_progressions():
+    class FixedEngine:
+        def rank(self, history, fixtures, as_of, *, eligible_teams):
+            return [
+                SimpleNamespace(selected_team="A", team_probability=0.90),
+                SimpleNamespace(selected_team="B", team_probability=0.80),
+                SimpleNamespace(selected_team="C", team_probability=0.70),
+            ]
+
+    matches = [
+        *[_match(day, "A", f"A{day}", "H") for day in range(1, 6)],
+        *[_match(day, "B", f"B{day}", "H") for day in range(1, 6)],
+        *[_match(day, "C", f"C{day}", "H") for day in range(1, 6)],
+        _match(6, "A", "B", "H"),
+        _match(6, "C", "D", "H"),
+        _match(7, "A", "B", "D"),
+        _match(7, "C", "E", "H"),
+    ]
+
+    report = run_team_progression_backtest(
+        matches, min_history=5, top_n=3, engine=FixedEngine()
+    )
+
+    # Three series open on day 6. After the losses, each requires a 2-unit
+    # next stake, so committed capital reaches 9. On day 7 A and B close,
+    # while C remains open.
+    assert report.series_started == 3
+    assert report.series_completed == 2
+    assert report.max_stake_units == 2
+    assert report.max_capital_units == 9
+    assert report.bets == 5
+
+
 def test_odds_economics_are_explicit_and_exact():
     matches = [
         _match(1, "A", "B", "H"),
