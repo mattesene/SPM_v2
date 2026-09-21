@@ -174,6 +174,76 @@ def build_progression_stress(
     }
 
 
+
+def build_progression_stress_breakdown(
+    dataset_observations: Iterable[
+        tuple[str, Iterable[TeamProgressionObservation]]
+    ],
+) -> dict[str, object]:
+    """Build dataset- and team-scoped progression stress diagnostics.
+
+    Dataset boundaries are preserved so identical team names from different
+    leagues/seasons cannot share progression state. Team rows are keyed by
+    dataset plus canonical team name.
+    """
+    dataset_rows: list[dict[str, object]] = []
+    team_rows: list[dict[str, object]] = []
+    global_streak_counts: dict[str, int] = {}
+    global_max_streak = 0
+    global_max_stake = 0
+    global_max_series_capital = 0
+
+    for dataset, raw_observations in dataset_observations:
+        rows = tuple(raw_observations)
+        stress = build_progression_stress(rows)
+        dataset_rows.append({"dataset": dataset, **stress})
+
+        global_max_streak = max(global_max_streak, int(stress["observed_max_streak"]))
+        global_max_stake = max(global_max_stake, int(stress["observed_max_stake_units"]))
+        global_max_series_capital = max(
+            global_max_series_capital,
+            int(stress["observed_max_series_capital_units"]),
+        )
+        for key, count in stress["streak_observation_counts"].items():
+            global_streak_counts[key] = global_streak_counts.get(key, 0) + count
+
+        teams: dict[str, list[TeamProgressionObservation]] = {}
+        for row in rows:
+            team = canonical_team_name(row.team)
+            teams.setdefault(team, []).append(row)
+        for team, team_observations in sorted(teams.items()):
+            team_stress = build_progression_stress(team_observations)
+            team_rows.append({
+                "dataset": dataset,
+                "team": team,
+                **team_stress,
+            })
+
+    dataset_rows.sort(
+        key=lambda row: (
+            -int(row["observed_max_streak"]),
+            -int(row["observed_max_series_capital_units"]),
+            str(row["dataset"]),
+        )
+    )
+    team_rows.sort(
+        key=lambda row: (
+            -int(row["observed_max_streak"]),
+            -int(row["observed_max_series_capital_units"]),
+            str(row["dataset"]),
+            str(row["team"]),
+        )
+    )
+    return {
+        "observed_max_streak": global_max_streak,
+        "observed_max_stake_units": global_max_stake,
+        "observed_max_series_capital_units": global_max_series_capital,
+        "streak_observation_counts": global_streak_counts,
+        "by_dataset": dataset_rows,
+        "by_team": team_rows,
+    }
+
+
 def aggregate_odds_sensitivity(
     sensitivity_reports: Iterable[dict[float, dict[str, float | None]]],
 ) -> dict[float, dict[str, float | None]]:
