@@ -290,3 +290,26 @@ def test_aggregate_odds_sensitivity_keeps_drawdown_dataset_scoped():
     assert result[2.0]["total_staked_units"] == 6.0
     assert result[2.0]["roi"] == 1.0 / 6.0
     assert result[2.0]["max_dataset_drawdown_units"] == 7.0
+
+
+def test_progression_stress_matches_theoretical_capital():
+    from spm.backtest.team_progression import TeamProgressionObservation, build_progression_stress
+
+    rows = (
+        TeamProgressionObservation(date(2025, 1, 1), "A", "B", 0.8, 0, False, 1),
+        TeamProgressionObservation(date(2025, 1, 2), "A", "C", 0.8, 1, False, 2),
+        TeamProgressionObservation(date(2025, 1, 3), "A", "D", 0.8, 2, False, 4),
+        TeamProgressionObservation(date(2025, 1, 4), "A", "E", 0.8, 3, True, 8),
+    )
+
+    result = build_progression_stress(rows)
+
+    assert result["observed_max_streak"] == 3
+    assert result["observed_max_stake_units"] == 8
+    assert result["observed_max_committed_capital_units"] == 15
+    assert result["theoretical_capital_by_streak"] == {
+        "0": 1,
+        "1": 3,
+        "2": 7,
+        "3": 15,
+    }
