@@ -116,30 +116,35 @@ def evaluate_odds_sensitivity(
 def build_progression_stress(
     observations: Iterable[TeamProgressionObservation],
 ) -> dict[str, object]:
-    """Summarize observed and theoretical capital requirements of progression.
+    """Summarize observed progression depth and capital stress.
 
-    The theoretical requirement after n consecutive non-draws includes
-    the next doubled stake, matching max_capital_units in the backtest:
-    1 + 2 + ... + 2**n = 2**(n + 1) - 1.
+    Capital for a single series includes the next doubled stake after each
+    non-draw, matching the backtest's committed-capital convention.
     """
     rows = tuple(observations)
     series_capital: dict[str, int] = {}
     observed_max_streak = 0
     observed_max_stake = 0
-    observed_max_capital = 0
+    observed_max_series_capital = 0
+    streak_counts: dict[str, int] = {}
     max_streak_examples: list[dict[str, object]] = []
 
     for row in rows:
         team = canonical_team_name(row.team)
-        new_series = row.streak_before == 0 or team not in series_capital
-        if new_series:
+        if row.streak_before == 0 or team not in series_capital:
             series_capital[team] = row.stake_units
+
         if not row.actual_draw:
             series_capital[team] += row.stake_units * 2
 
         observed_max_streak = max(observed_max_streak, row.streak_before)
         observed_max_stake = max(observed_max_stake, row.stake_units)
-        observed_max_capital = max(observed_max_capital, series_capital[team])
+        observed_max_series_capital = max(
+            observed_max_series_capital, series_capital[team]
+        )
+
+        key = str(row.streak_before)
+        streak_counts[key] = streak_counts.get(key, 0) + 1
 
         if row.streak_before == observed_max_streak:
             max_streak_examples.append({
@@ -154,6 +159,7 @@ def build_progression_stress(
         item for item in max_streak_examples
         if item["streak_before"] == observed_max_streak
     ][:20]
+
     theoretical = {
         str(streak): (2 ** (streak + 1)) - 1
         for streak in range(observed_max_streak + 1)
@@ -161,7 +167,8 @@ def build_progression_stress(
     return {
         "observed_max_streak": observed_max_streak,
         "observed_max_stake_units": observed_max_stake,
-        "observed_max_committed_capital_units": observed_max_capital,
+        "observed_max_series_capital_units": observed_max_series_capital,
+        "streak_observation_counts": streak_counts,
         "theoretical_capital_by_streak": theoretical,
         "max_streak_examples": max_streak_examples,
     }
