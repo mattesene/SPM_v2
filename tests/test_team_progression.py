@@ -314,3 +314,45 @@ def test_progression_stress_matches_theoretical_capital():
         "2": 7,
         "3": 15,
     }
+
+
+
+def test_progression_stress_breakdown_preserves_dataset_boundaries():
+    from spm.backtest.team_progression import (
+        TeamProgressionObservation,
+        build_progression_stress_breakdown,
+    )
+
+    dataset_a = (
+        TeamProgressionObservation(date(2025, 1, 1), "A", "B", 0.8, 0, False, 1),
+        TeamProgressionObservation(date(2025, 1, 2), "A", "C", 0.8, 1, True, 2),
+    )
+    dataset_b = (
+        TeamProgressionObservation(date(2025, 2, 1), "A", "D", 0.8, 0, False, 1),
+        TeamProgressionObservation(date(2025, 2, 2), "A", "E", 0.8, 1, False, 2),
+        TeamProgressionObservation(date(2025, 2, 3), "A", "F", 0.8, 2, True, 4),
+    )
+
+    result = build_progression_stress_breakdown(
+        (("league-a/2025.csv", dataset_a), ("league-b/2025.csv", dataset_b))
+    )
+
+    assert result["observed_max_streak"] == 2
+    assert result["observed_max_stake_units"] == 4
+    assert result["observed_max_series_capital_units"] == 7
+    assert result["streak_observation_counts"] == {"0": 2, "1": 2, "2": 1}
+
+    by_dataset = {row["dataset"]: row for row in result["by_dataset"]}
+    assert by_dataset["league-a/2025.csv"]["observed_max_streak"] == 1
+    assert by_dataset["league-a/2025.csv"]["observed_max_series_capital_units"] == 3
+    assert by_dataset["league-b/2025.csv"]["observed_max_streak"] == 2
+    assert by_dataset["league-b/2025.csv"]["observed_max_series_capital_units"] == 7
+
+    assert len(result["by_team"]) == 2
+    assert {
+        (row["dataset"], row["team"], row["observed_max_streak"])
+        for row in result["by_team"]
+    } == {
+        ("league-a/2025.csv", "A", 1),
+        ("league-b/2025.csv", "A", 2),
+    }
