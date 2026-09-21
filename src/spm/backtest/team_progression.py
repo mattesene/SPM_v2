@@ -114,6 +114,41 @@ def evaluate_odds_sensitivity(
     return results
 
 
+def aggregate_economic_reports(
+    reports: Iterable[TeamProgressionReport],
+) -> dict[str, float | int | None]:
+    """Aggregate independent dataset economics without inventing one timeline.
+
+    Profit and stake are additive across datasets. Drawdown and peak committed
+    capital are *dataset maxima*, because separate leagues/seasons do not share
+    a single chronological bankroll timeline in this runner.
+    """
+    items = tuple(reports)
+    priced = [report for report in items if report.profit_units is not None]
+    if not priced:
+        return {
+            "profit_units": None,
+            "total_staked_units": None,
+            "roi": None,
+            "max_dataset_drawdown_units": None,
+            "max_dataset_capital_units": None,
+        }
+
+    profit = sum(report.profit_units or 0.0 for report in priced)
+    staked = sum(report.total_staked_units or 0.0 for report in priced)
+    return {
+        "profit_units": profit,
+        "total_staked_units": staked,
+        "roi": profit / staked if staked else None,
+        "max_dataset_drawdown_units": max(
+            report.max_drawdown_units or 0.0 for report in priced
+        ),
+        "max_dataset_capital_units": max(
+            report.max_capital_units for report in priced
+        ),
+    }
+
+
 def run_team_progression_backtest(
     matches: Iterable[Match],
     *,
