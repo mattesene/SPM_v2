@@ -8,7 +8,7 @@ from concurrent.futures import ProcessPoolExecutor
 from pathlib import Path
 
 from spm.backtest.calibration import build_calibration
-from spm.backtest.team_progression import aggregate_economic_reports, aggregate_odds_sensitivity, evaluate_odds_sensitivity, run_team_progression_backtest
+from spm.backtest.team_progression import aggregate_economic_reports, aggregate_odds_sensitivity, build_progression_stress, evaluate_odds_sensitivity, run_team_progression_backtest
 from spm.data.csv import CSVMatchImporter
 from spm.data.historical_pipeline import prepare_historical_scope
 from spm.data.historical_scope import default_historical_scope
@@ -134,6 +134,7 @@ def main() -> int:
         "scope": {"start_season": scope.start_season, "end_season": scope.end_season},
         "aggregate": dict(aggregate),
         "calibration": build_calibration(all_observations),
+        "progression_stress": build_progression_stress(all_observations),
         "odds_sensitivity": {str(odds): values for odds, values in odds_sensitivity.items()},
         "datasets": datasets,
         "team_breakdown": teams[:100],
