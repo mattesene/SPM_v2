@@ -260,3 +260,33 @@ def test_aggregate_economic_reports_keeps_drawdown_dataset_scoped():
     assert result["roi"] == 5.0 / 3.0
     assert result["max_dataset_drawdown_units"] == 5.0
     assert result["max_dataset_capital_units"] == 7
+
+
+def test_aggregate_odds_sensitivity_keeps_drawdown_dataset_scoped():
+    from spm.backtest.team_progression import aggregate_odds_sensitivity
+
+    reports = (
+        {
+            2.0: {
+                "profit_units": 2.0,
+                "total_staked_units": 4.0,
+                "roi": 0.5,
+                "max_drawdown_units": 3.0,
+            }
+        },
+        {
+            2.0: {
+                "profit_units": -1.0,
+                "total_staked_units": 2.0,
+                "roi": -0.5,
+                "max_drawdown_units": 7.0,
+            }
+        },
+    )
+
+    result = aggregate_odds_sensitivity(reports)
+
+    assert result[2.0]["profit_units"] == 1.0
+    assert result[2.0]["total_staked_units"] == 6.0
+    assert result[2.0]["roi"] == 1.0 / 6.0
+    assert result[2.0]["max_dataset_drawdown_units"] == 7.0
