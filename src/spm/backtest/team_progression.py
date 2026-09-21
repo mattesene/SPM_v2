@@ -114,6 +114,32 @@ def evaluate_odds_sensitivity(
     return results
 
 
+def aggregate_odds_sensitivity(
+    sensitivity_reports: Iterable[dict[float, dict[str, float | None]]],
+) -> dict[float, dict[str, float | None]]:
+    """Aggregate fixed-odds sensitivity across independent datasets.
+
+    Profit and stake are additive. Drawdown is kept dataset-scoped by taking
+    the largest drawdown observed in any individual dataset; separate leagues
+    and seasons are not treated as one chronological bankroll timeline.
+    """
+    reports = tuple(sensitivity_reports)
+    odds_values = sorted({odds for report in reports for odds in report})
+    aggregated: dict[float, dict[str, float | None]] = {}
+    for odds in odds_values:
+        rows = [report[odds] for report in reports if odds in report]
+        profit = sum(row["profit_units"] or 0.0 for row in rows)
+        staked = sum(row["total_staked_units"] or 0.0 for row in rows)
+        drawdowns = [row["max_drawdown_units"] or 0.0 for row in rows]
+        aggregated[odds] = {
+            "profit_units": profit,
+            "total_staked_units": staked,
+            "roi": profit / staked if staked else None,
+            "max_dataset_drawdown_units": max(drawdowns) if rows else None,
+        }
+    return aggregated
+
+
 def aggregate_economic_reports(
     reports: Iterable[TeamProgressionReport],
 ) -> dict[str, float | int | None]:
