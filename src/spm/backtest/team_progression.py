@@ -65,6 +65,55 @@ def _team_and_opponent(match: Match, selected_team: str) -> tuple[str, str]:
     return match.away_team, match.home_team
 
 
+def evaluate_odds_sensitivity(
+    observations: Iterable[TeamProgressionObservation],
+    odds_values: Iterable[float],
+) -> dict[float, dict[str, float | None]]:
+    """Evaluate fixed-odds economics without rerunning the selection model.
+
+    This is sensitivity analysis, not historical-odds performance: decisions
+    and stakes stay unchanged and only the settlement price is varied.
+    """
+    normalized_odds = tuple(float(odds) for odds in odds_values)
+    if any(odds <= 1.0 for odds in normalized_odds):
+        raise ValueError("all odds values must be greater than 1.0")
+
+    rows = tuple(observations)
+    fixtures: dict[tuple[date, tuple[str, str]], list[TeamProgressionObservation]] = {}
+    for row in rows:
+        teams = tuple(sorted((canonical_team_name(row.team), canonical_team_name(row.opponent))))
+        fixtures.setdefault((row.date, teams), []).append(row)
+
+    ordered_fixtures = [fixtures[key] for key in sorted(fixtures)]
+    results: dict[float, dict[str, float | None]] = {}
+    for odds in normalized_odds:
+        profit = 0.0
+        staked = 0.0
+        peak = 0.0
+        max_drawdown = 0.0
+        for fixture in ordered_fixtures:
+            fixture_profit = 0.0
+            fixture_staked = 0.0
+            for row in fixture:
+                fixture_staked += row.stake_units
+                fixture_profit += (
+                    row.stake_units * (odds - 1.0)
+                    if row.actual_draw
+                    else -row.stake_units
+                )
+            staked += fixture_staked
+            profit += fixture_profit
+            peak = max(peak, profit)
+            max_drawdown = max(max_drawdown, peak - profit)
+        results[odds] = {
+            "profit_units": profit,
+            "total_staked_units": staked,
+            "roi": profit / staked if staked else None,
+            "max_drawdown_units": max_drawdown,
+        }
+    return results
+
+
 def run_team_progression_backtest(
     matches: Iterable[Match],
     *,
