@@ -131,9 +131,9 @@ def build_progression_stress(
 
     for row in rows:
         team = canonical_team_name(row.team)
-        if row.streak_before == 0 or team not in series_capital:
-            series_capital[team] = 0
-        series_capital[team] += row.stake_units
+        new_series = row.streak_before == 0 or team not in series_capital
+        if new_series:
+            series_capital[team] = row.stake_units
         if not row.actual_draw:
             series_capital[team] += row.stake_units * 2
 
