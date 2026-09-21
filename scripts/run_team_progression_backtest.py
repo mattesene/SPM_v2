@@ -8,7 +8,7 @@ from concurrent.futures import ProcessPoolExecutor
 from pathlib import Path
 
 from spm.backtest.calibration import build_calibration
-from spm.backtest.team_progression import run_team_progression_backtest
+from spm.backtest.team_progression import evaluate_odds_sensitivity, run_team_progression_backtest
 from spm.data.csv import CSVMatchImporter
 from spm.data.historical_pipeline import prepare_historical_scope
 from spm.data.historical_scope import default_historical_scope
@@ -53,9 +53,16 @@ def main() -> int:
     parser.add_argument("--output", type=Path, default=Path("reports/team_progression_backtest.json"))
     parser.add_argument("--min-history", type=int, default=5)
     parser.add_argument("--top-n", type=int, default=5)
-    parser.add_argument("--draw-odds", type=float, default=None, help="Constant decimal draw odds for economic analysis")
+    parser.add_argument("--draw-odds", type=float, default=None, help="One constant decimal draw odds value for economic analysis")
+    parser.add_argument("--sensitivity-odds", type=str, default="1.8,2.0,2.2,2.5,3.0,3.5", help="Comma-separated constant odds values for sensitivity analysis")
     parser.add_argument("--workers", type=int, default=2)
     args = parser.parse_args()
+    try:
+        sensitivity_odds = tuple(float(value.strip()) for value in args.sensitivity_odds.split(",") if value.strip())
+    except ValueError as exc:
+        raise ValueError("sensitivity odds must be comma-separated numbers") from exc
+    if any(odds <= 1.0 for odds in sensitivity_odds):
+        raise ValueError("all sensitivity odds must be greater than 1.0")
     if args.workers < 1:
         raise ValueError("workers must be positive")
 
@@ -106,6 +113,7 @@ def main() -> int:
     aggregate["top_n"] = args.top_n
     aggregate["workers"] = args.workers
     aggregate["draw_odds"] = args.draw_odds
+    odds_sensitivity = evaluate_odds_sensitivity(all_observations, sensitivity_odds)
     if economic_reports:
         aggregate["profit_units"] = sum(r.profit_units or 0.0 for r in economic_reports)
         aggregate["total_staked_units"] = sum(r.total_staked_units or 0.0 for r in economic_reports)
@@ -125,6 +133,7 @@ def main() -> int:
         "scope": {"start_season": scope.start_season, "end_season": scope.end_season},
         "aggregate": dict(aggregate),
         "calibration": build_calibration(all_observations),
+        "odds_sensitivity": {str(odds): values for odds, values in odds_sensitivity.items()},
         "datasets": datasets,
         "team_breakdown": teams[:100],
     }
