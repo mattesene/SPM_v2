@@ -8,7 +8,7 @@ from concurrent.futures import ProcessPoolExecutor
 from pathlib import Path
 
 from spm.backtest.calibration import build_calibration
-from spm.backtest.team_progression import aggregate_economic_reports, evaluate_odds_sensitivity, run_team_progression_backtest
+from spm.backtest.team_progression import aggregate_economic_reports, aggregate_odds_sensitivity, evaluate_odds_sensitivity, run_team_progression_backtest
 from spm.data.csv import CSVMatchImporter
 from spm.data.historical_pipeline import prepare_historical_scope
 from spm.data.historical_scope import default_historical_scope
@@ -77,6 +77,7 @@ def main() -> int:
     aggregate = defaultdict(int)
     team_stats = defaultdict(lambda: {"bets": 0, "draws": 0, "series_started": 0, "series_completed": 0, "max_streak": 0, "max_stake_units": 0})
     all_observations = []
+    sensitivity_reports = []
     economic_reports = []
 
     with ProcessPoolExecutor(max_workers=min(args.workers, len(tasks) or 1)) as executor:
@@ -85,6 +86,7 @@ def main() -> int:
             summary = _summary(report)
             datasets.append({"dataset": str(path.relative_to(root)), "matches": match_count, **summary})
             all_observations.extend(report.observations)
+            sensitivity_reports.append(evaluate_odds_sensitivity(report.observations, sensitivity_odds))
             aggregate["matches"] += match_count
             for key in ("bets", "draws", "non_draws", "teams_selected", "series_started", "series_completed"):
                 aggregate[key] += summary[key]
@@ -113,7 +115,7 @@ def main() -> int:
     aggregate["top_n"] = args.top_n
     aggregate["workers"] = args.workers
     aggregate["draw_odds"] = args.draw_odds
-    odds_sensitivity = evaluate_odds_sensitivity(all_observations, sensitivity_odds)
+    odds_sensitivity = aggregate_odds_sensitivity(sensitivity_reports)
     if economic_reports:
         economic = aggregate_economic_reports(economic_reports)
         aggregate.update(economic)
