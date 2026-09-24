@@ -385,3 +385,66 @@ def test_progression_risk_profile_measures_series_depth():
     assert result["depth_levels"]["2"]["series_reaching"] == 1
     assert result["depth_levels"]["2"]["reach_rate"] == 0.5
     assert result["depth_levels"]["2"]["required_capital_units"] == 7
+
+
+def test_progression_bankroll_report_separates_series_and_simultaneous_capital():
+    from spm.backtest.team_progression import (
+        TeamProgressionObservation,
+        TeamProgressionReport,
+        build_progression_bankroll_report,
+    )
+
+    rows = (
+        TeamProgressionObservation(date(2025, 1, 1), "A", "B", 0.8, 0, False, 1),
+        TeamProgressionObservation(date(2025, 1, 2), "A", "C", 0.8, 1, True, 2),
+        TeamProgressionObservation(date(2025, 1, 3), "B", "D", 0.8, 0, False, 1),
+        TeamProgressionObservation(date(2025, 1, 4), "B", "E", 0.8, 1, False, 2),
+    )
+    report = TeamProgressionReport(
+        rows, 2, 2, 1, 1, 2, 1, 2, 4, 0,
+        3.0, 6.0, 2.0, 3.0,
+    )
+
+    result = build_progression_bankroll_report(report)
+
+    assert result["max_series_capital_units"] == 7
+    assert result["max_simultaneous_capital_units"] == 4
+    assert result["max_stake_units"] == 2
+    assert result["profit_units"] == 3.0
+    assert result["roi"] == 0.5
+
+
+def test_aggregate_progression_bankroll_reports_preserves_dataset_boundaries():
+    from spm.backtest.team_progression import aggregate_progression_bankroll_reports
+
+    reports = (
+        {
+            "series_started": 2, "series_completed": 2, "series_open_at_end": 0,
+            "max_streak": 1, "max_stake_units": 2,
+            "max_series_capital_units": 3, "max_simultaneous_capital_units": 4,
+            "profit_units": 2.0, "total_staked_units": 4.0, "roi": 0.5,
+            "max_drawdown_units": 2.0, "draw_odds": 3.0,
+        },
+        {
+            "series_started": 3, "series_completed": 2, "series_open_at_end": 1,
+            "max_streak": 2, "max_stake_units": 4,
+            "max_series_capital_units": 7, "max_simultaneous_capital_units": 9,
+            "profit_units": -1.0, "total_staked_units": 5.0, "roi": -0.2,
+            "max_drawdown_units": 6.0, "draw_odds": 3.0,
+        },
+    )
+
+    result = aggregate_progression_bankroll_reports(reports)
+
+    assert result["dataset_count"] == 2
+    assert result["series_started"] == 5
+    assert result["series_completed"] == 4
+    assert result["series_open_at_end"] == 1
+    assert result["max_streak"] == 2
+    assert result["max_stake_units"] == 4
+    assert result["max_series_capital_units"] == 7
+    assert result["max_simultaneous_capital_units"] == 9
+    assert result["profit_units"] == 1.0
+    assert result["total_staked_units"] == 9.0
+    assert result["roi"] == 1.0 / 9.0
+    assert result["max_dataset_drawdown_units"] == 6.0
