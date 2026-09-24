@@ -175,6 +175,67 @@ def build_progression_stress(
 
 
 
+
+def build_progression_risk_profile(
+    observations: Iterable[TeamProgressionObservation],
+) -> dict[str, object]:
+    """Quantify how often progression series reach each loss depth.
+
+    A depth of zero is the opening stake. A depth of one means the series
+    survived one non-draw and required the doubled stake, and so on. Reach
+    rates use started series as the denominator, while terminal counts only
+    include series that actually ended with a draw in the observed data.
+    """
+    rows = tuple(observations)
+    series_max: dict[str, int] = {}
+    series_completed: set[str] = set()
+    series_index = 0
+    current_series: dict[str, int] = {}
+    series_ids: dict[str, str] = {}
+
+    for row in rows:
+        team = canonical_team_name(row.team)
+        if row.streak_before == 0 or team not in current_series:
+            series_index += 1
+            series_ids[team] = f"{team}#{series_index}"
+            current_series[team] = 0
+        series_id = series_ids[team]
+        current_series[team] = max(current_series[team], row.streak_before)
+        series_max[series_id] = current_series[team]
+        if row.actual_draw:
+            series_completed.add(series_id)
+            current_series.pop(team, None)
+            series_ids.pop(team, None)
+
+    started = len(series_max)
+    terminal_counts: dict[str, int] = {}
+    for series_id in series_completed:
+        depth = series_max[series_id]
+        key = str(depth)
+        terminal_counts[key] = terminal_counts.get(key, 0) + 1
+
+    max_streak = max(series_max.values(), default=0)
+    max_stake = max((row.stake_units for row in rows), default=0)
+    depth_levels: dict[str, dict[str, float | int]] = {}
+    for depth in range(max_streak + 1):
+        reaching = sum(value >= depth for value in series_max.values())
+        depth_levels[str(depth)] = {
+            "series_reaching": reaching,
+            "reach_rate": reaching / started if started else 0.0,
+            "required_capital_units": (2 ** (depth + 1)) - 1,
+        }
+
+    return {
+        "series_started": started,
+        "series_completed": len(series_completed),
+        "series_open_at_end": started - len(series_completed),
+        "max_streak": max_streak,
+        "max_stake_units": max_stake,
+        "terminal_streak_counts": dict(sorted(terminal_counts.items(), key=lambda item: int(item[0]))),
+        "depth_levels": depth_levels,
+    }
+
+
 def build_progression_stress_breakdown(
     dataset_observations: Iterable[
         tuple[str, Iterable[TeamProgressionObservation]]
