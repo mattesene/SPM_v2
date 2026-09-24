@@ -356,3 +356,32 @@ def test_progression_stress_breakdown_preserves_dataset_boundaries():
         ("league-a/2025.csv", "A", 1),
         ("league-b/2025.csv", "A", 2),
     }
+
+
+
+def test_progression_risk_profile_measures_series_depth():
+    from spm.backtest.team_progression import (
+        TeamProgressionObservation,
+        build_progression_risk_profile,
+    )
+
+    rows = (
+        TeamProgressionObservation(date(2025, 1, 1), "A", "B", 0.8, 0, False, 1),
+        TeamProgressionObservation(date(2025, 1, 2), "A", "C", 0.8, 1, True, 2),
+        TeamProgressionObservation(date(2025, 1, 3), "B", "D", 0.8, 0, False, 1),
+        TeamProgressionObservation(date(2025, 1, 4), "B", "E", 0.8, 1, False, 2),
+        TeamProgressionObservation(date(2025, 1, 5), "B", "F", 0.8, 2, True, 4),
+    )
+
+    result = build_progression_risk_profile(rows)
+
+    assert result["series_started"] == 2
+    assert result["series_completed"] == 2
+    assert result["max_streak"] == 2
+    assert result["max_stake_units"] == 4
+    assert result["terminal_streak_counts"] == {"1": 1, "2": 1}
+    assert result["depth_levels"]["0"]["series_reaching"] == 2
+    assert result["depth_levels"]["1"]["series_reaching"] == 2
+    assert result["depth_levels"]["2"]["series_reaching"] == 1
+    assert result["depth_levels"]["2"]["reach_rate"] == 0.5
+    assert result["depth_levels"]["2"]["required_capital_units"] == 7
