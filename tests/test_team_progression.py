@@ -448,3 +448,44 @@ def test_aggregate_progression_bankroll_reports_preserves_dataset_boundaries():
     assert result["total_staked_units"] == 9.0
     assert result["roi"] == 1.0 / 9.0
     assert result["max_dataset_drawdown_units"] == 6.0
+
+
+def test_aggregate_progression_risk_profiles_preserves_depth_rates():
+    from spm.backtest.team_progression import aggregate_progression_risk_profiles
+
+    profiles = (
+        {
+            "series_started": 2, "series_completed": 2, "series_open_at_end": 0,
+            "max_streak": 1, "max_stake_units": 2,
+            "terminal_streak_counts": {"1": 2},
+            "depth_levels": {
+                "0": {"series_reaching": 2, "reach_rate": 1.0, "required_capital_units": 1},
+                "1": {"series_reaching": 2, "reach_rate": 1.0, "required_capital_units": 3},
+            },
+        },
+        {
+            "series_started": 2, "series_completed": 1, "series_open_at_end": 1,
+            "max_streak": 2, "max_stake_units": 4,
+            "terminal_streak_counts": {"2": 1},
+            "depth_levels": {
+                "0": {"series_reaching": 2, "reach_rate": 1.0, "required_capital_units": 1},
+                "1": {"series_reaching": 1, "reach_rate": 0.5, "required_capital_units": 3},
+                "2": {"series_reaching": 1, "reach_rate": 0.5, "required_capital_units": 7},
+            },
+        },
+    )
+
+    result = aggregate_progression_risk_profiles(profiles)
+
+    assert result["series_started"] == 4
+    assert result["series_completed"] == 3
+    assert result["series_open_at_end"] == 1
+    assert result["max_streak"] == 2
+    assert result["terminal_streak_counts"] == {"1": 2, "2": 1}
+    assert result["depth_levels"]["0"]["series_reaching"] == 4
+    assert result["depth_levels"]["0"]["reach_rate"] == 1.0
+    assert result["depth_levels"]["1"]["series_reaching"] == 3
+    assert result["depth_levels"]["1"]["reach_rate"] == 0.75
+    assert result["depth_levels"]["2"]["series_reaching"] == 1
+    assert result["depth_levels"]["2"]["reach_rate"] == 0.25
+    assert result["depth_levels"]["2"]["required_capital_units"] == 7
