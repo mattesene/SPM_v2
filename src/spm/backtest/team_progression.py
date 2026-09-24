@@ -305,6 +305,93 @@ def build_progression_stress_breakdown(
     }
 
 
+
+def build_progression_bankroll_report(
+    report: TeamProgressionReport,
+) -> dict[str, object]:
+    """Combine progression depth, capital stress and observed economics.
+
+    Single-series capital and simultaneous open capital are reported
+    separately: they answer different bankroll questions and must not be
+    conflated.
+    """
+    risk = build_progression_risk_profile(report.observations)
+    stress = build_progression_stress(report.observations)
+    result: dict[str, object] = {
+        "series_started": report.series_started,
+        "series_completed": report.series_completed,
+        "series_open_at_end": report.series_started - report.series_completed,
+        "max_streak": report.max_streak,
+        "max_stake_units": report.max_stake_units,
+        "max_series_capital_units": stress["observed_max_series_capital_units"],
+        "max_simultaneous_capital_units": report.max_capital_units,
+        "depth_levels": risk["depth_levels"],
+        "terminal_streak_counts": risk["terminal_streak_counts"],
+        "profit_units": report.profit_units,
+        "total_staked_units": report.total_staked_units,
+        "roi": report.roi,
+        "max_drawdown_units": report.max_drawdown_units,
+        "draw_odds": report.draw_odds,
+    }
+    return result
+
+
+def aggregate_progression_bankroll_reports(
+    reports: Iterable[dict[str, object]],
+) -> dict[str, object]:
+    """Aggregate independent dataset bankroll reports without merging timelines."""
+    items = tuple(reports)
+    if not items:
+        return {
+            "dataset_count": 0,
+            "series_started": 0,
+            "series_completed": 0,
+            "series_open_at_end": 0,
+            "max_streak": 0,
+            "max_stake_units": 0,
+            "max_series_capital_units": 0,
+            "max_simultaneous_capital_units": 0,
+            "profit_units": None,
+            "total_staked_units": None,
+            "roi": None,
+            "max_dataset_drawdown_units": None,
+            "by_dataset": [],
+        }
+
+    priced = [item for item in items if item["profit_units"] is not None]
+    profit = (
+        sum(float(item["profit_units"]) for item in priced)
+        if priced else None
+    )
+    staked = (
+        sum(float(item["total_staked_units"]) for item in priced)
+        if priced else None
+    )
+    drawdowns = [
+        float(item["max_drawdown_units"])
+        for item in priced
+        if item["max_drawdown_units"] is not None
+    ]
+    return {
+        "dataset_count": len(items),
+        "series_started": sum(int(item["series_started"]) for item in items),
+        "series_completed": sum(int(item["series_completed"]) for item in items),
+        "series_open_at_end": sum(int(item["series_open_at_end"]) for item in items),
+        "max_streak": max(int(item["max_streak"]) for item in items),
+        "max_stake_units": max(int(item["max_stake_units"]) for item in items),
+        "max_series_capital_units": max(
+            int(item["max_series_capital_units"]) for item in items
+        ),
+        "max_simultaneous_capital_units": max(
+            int(item["max_simultaneous_capital_units"]) for item in items
+        ),
+        "profit_units": profit,
+        "total_staked_units": staked,
+        "roi": profit / staked if profit is not None and staked else None,
+        "max_dataset_drawdown_units": max(drawdowns) if drawdowns else None,
+        "by_dataset": list(items),
+    }
+
 def aggregate_odds_sensitivity(
     sensitivity_reports: Iterable[dict[float, dict[str, float | None]]],
 ) -> dict[float, dict[str, float | None]]:
