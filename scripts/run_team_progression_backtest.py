@@ -8,7 +8,7 @@ from concurrent.futures import ProcessPoolExecutor
 from pathlib import Path
 
 from spm.backtest.calibration import build_calibration
-from spm.backtest.team_progression import aggregate_economic_reports, aggregate_odds_sensitivity, build_progression_stress_breakdown, evaluate_odds_sensitivity, run_team_progression_backtest
+from spm.backtest.team_progression import aggregate_economic_reports, aggregate_odds_sensitivity, build_progression_risk_profile, build_progression_stress_breakdown, evaluate_odds_sensitivity, run_team_progression_backtest
 from spm.data.csv import CSVMatchImporter
 from spm.data.historical_pipeline import prepare_historical_scope
 from spm.data.historical_scope import default_historical_scope
@@ -85,7 +85,8 @@ def main() -> int:
         results = executor.map(_run_dataset, tasks)
         for path, root, match_count, report in results:
             summary = _summary(report)
-            datasets.append({"dataset": str(path.relative_to(root)), "matches": match_count, **summary})
+            dataset_name = str(path.relative_to(root))
+            datasets.append({"dataset": dataset_name, "matches": match_count, "progression_risk": build_progression_risk_profile(report.observations), **summary})
             all_observations.extend(report.observations)
             stress_datasets.append((str(path.relative_to(root)), report.observations))
             sensitivity_reports.append(evaluate_odds_sensitivity(report.observations, sensitivity_odds))
@@ -137,6 +138,7 @@ def main() -> int:
         "aggregate": dict(aggregate),
         "calibration": build_calibration(all_observations),
         "progression_stress": build_progression_stress_breakdown(stress_datasets),
+        "progression_risk": build_progression_risk_profile(all_observations),
         "odds_sensitivity": {str(odds): values for odds, values in odds_sensitivity.items()},
         "datasets": datasets,
         "team_breakdown": teams[:100],
