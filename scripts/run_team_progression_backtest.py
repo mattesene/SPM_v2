@@ -80,15 +80,24 @@ def main() -> int:
     sensitivity_reports = []
     economic_reports = []
     stress_datasets = []
+    bankroll_reports = []
 
     with ProcessPoolExecutor(max_workers=min(args.workers, len(tasks) or 1)) as executor:
         results = executor.map(_run_dataset, tasks)
         for path, root, match_count, report in results:
             summary = _summary(report)
             dataset_name = str(path.relative_to(root))
-            datasets.append({"dataset": dataset_name, "matches": match_count, "progression_risk": build_progression_risk_profile(report.observations), **summary})
+            bankroll_risk = build_progression_bankroll_report(report)
+            datasets.append({
+                "dataset": dataset_name,
+                "matches": match_count,
+                "progression_risk": build_progression_risk_profile(report.observations),
+                "bankroll_risk": bankroll_risk,
+                **summary,
+            })
             all_observations.extend(report.observations)
             stress_datasets.append((str(path.relative_to(root)), report.observations))
+            bankroll_reports.append((dataset_name, bankroll_risk))
             sensitivity_reports.append(evaluate_odds_sensitivity(report.observations, sensitivity_odds))
             aggregate["matches"] += match_count
             for key in ("bets", "draws", "non_draws", "teams_selected", "series_started", "series_completed"):
@@ -139,6 +148,9 @@ def main() -> int:
         "calibration": build_calibration(all_observations),
         "progression_stress": build_progression_stress_breakdown(stress_datasets),
         "progression_risk": build_progression_risk_profile(all_observations),
+        "bankroll_risk": aggregate_progression_bankroll_reports(
+            [report for _, report in bankroll_reports]
+        ),
         "odds_sensitivity": {str(odds): values for odds, values in odds_sensitivity.items()},
         "datasets": datasets,
         "team_breakdown": teams[:100],
