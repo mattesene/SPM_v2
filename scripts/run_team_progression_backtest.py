@@ -147,7 +147,7 @@ def main() -> int:
         "aggregate": dict(aggregate),
         "calibration": build_calibration(all_observations),
         "progression_stress": build_progression_stress_breakdown(stress_datasets),
-        "progression_risk": build_progression_risk_profile(all_observations),
+        "progression_risk": aggregate_progression_risk_profiles([\n            dataset["progression_risk"] for dataset in datasets\n        ]),
         "bankroll_risk": aggregate_progression_bankroll_reports(
             [report for _, report in bankroll_reports]
         ),
