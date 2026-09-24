@@ -236,6 +236,61 @@ def build_progression_risk_profile(
     }
 
 
+
+def aggregate_progression_risk_profiles(
+    profiles: Iterable[dict[str, object]],
+) -> dict[str, object]:
+    """Aggregate independent risk profiles without merging progression state."""
+    items = tuple(profiles)
+    terminal_counts: dict[str, int] = {}
+    max_streak = 0
+    max_stake = 0
+    started = completed = open_at_end = 0
+    max_depths: dict[str, dict[str, float | int]] = {}
+
+    for profile in items:
+        started += int(profile["series_started"])
+        completed += int(profile["series_completed"])
+        open_at_end += int(profile["series_open_at_end"])
+        max_streak = max(max_streak, int(profile["max_streak"]))
+        max_stake = max(max_stake, int(profile["max_stake_units"]))
+        for key, count in profile["terminal_streak_counts"].items():
+            terminal_counts[key] = terminal_counts.get(key, 0) + int(count)
+        for key, level in profile["depth_levels"].items():
+            current = max_depths.setdefault(
+                key,
+                {
+                    "series_reaching": 0,
+                    "required_capital_units": int(level["required_capital_units"]),
+                },
+            )
+            current["series_reaching"] += int(level["series_reaching"])
+
+    depth_levels: dict[str, dict[str, float | int]] = {}
+    for depth, level in max_depths.items():
+        reaching = int(level["series_reaching"])
+        depth_levels[depth] = {
+            "series_reaching": reaching,
+            "reach_rate": reaching / started if started else 0.0,
+            "required_capital_units": int(level["required_capital_units"]),
+        }
+
+    return {
+        "series_started": started,
+        "series_completed": completed,
+        "series_open_at_end": open_at_end,
+        "max_streak": max_streak,
+        "max_stake_units": max_stake,
+        "terminal_streak_counts": dict(
+            sorted(terminal_counts.items(), key=lambda item: int(item[0]))
+        ),
+        "depth_levels": dict(
+            sorted(depth_levels.items(), key=lambda item: int(item[0]))
+        ),
+    }
+
+
+
 def build_progression_stress_breakdown(
     dataset_observations: Iterable[
         tuple[str, Iterable[TeamProgressionObservation]]
